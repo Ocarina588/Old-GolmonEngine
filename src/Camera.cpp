@@ -3,6 +3,12 @@
 
 using Vk = vulkan::Context;
 
+void print_vector(glm::vec3 const& v)
+{
+	std::cout << v.x << " " << v.y << " " << v.z;
+}
+
+
 static bool intersectTriangle(
 	Ray& ray,
 	const glm::vec3& v0,    // First vertex of the triangle
@@ -50,51 +56,106 @@ static bool intersectTriangle(
 #include <random>
 #include <glm/gtx/orthonormalize.hpp>
 
-// Helper function to generate a random float between 0 and 1
-static float randomFloat() {
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-	return dis(gen);
-}
+#include <random>
+#include <glm/gtx/orthonormalize.hpp>
 
-// Function to create an orthonormal basis from a given normal vector
-static void createOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent) {
-	tangent = glm::abs(normal.x) > 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+//// Helper function to generate a random float between 0 and 1
+//static float randomFloat() {
+//	static std::random_device rd;
+//	static std::mt19937 gen(rd());
+//	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+//	return dis(gen);
+//}
+//
+//// Function to create an orthonormal basis from a given normal vector
+//static void createOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent) {
+//	tangent = glm::abs(normal.x) > 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+//
+//	tangent = glm::normalize(glm::cross(normal, tangent));
+//	bitangent = glm::cross(normal, tangent);
+//}
+//
+//glm::vec3 Camera::generateRandomDirection(const glm::vec3& normal, const glm::vec3& direction) {
+//	glm::vec3 adjusted_normal = normal;
+//
+//	// Adjust the normal if the target direction is behind it
+//	if (glm::dot(direction, normal) < 0.0f) {
+//		adjusted_normal = -normal;
+//	}
+//
+//	// Create an orthonormal basis based on the adjusted normal
+//	glm::vec3 tangent, bitangent;
+//	createOrthonormalBasis(adjusted_normal, tangent, bitangent);
+//
+//	// Generate random angles for spherical coordinates
+//	float phi = 2.0f * glm::pi<float>() * randomFloat();
+//	float cosTheta = randomFloat();
+//	float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+//
+//	// Calculate direction in local space
+//	glm::vec3 directionLocal = glm::vec3(
+//		cos(phi) * sinTheta,
+//		sin(phi) * sinTheta,
+//		cosTheta
+//	);
+//
+//	// Transform to world space
+//	glm::vec3 random_direction = directionLocal.x * tangent +
+//		directionLocal.y * bitangent +
+//		directionLocal.z * adjusted_normal;
+//
+//	// Check if the generated direction is pointing away from the target direction
+//	if (glm::dot(random_direction, direction) > 0.0f) {
+//		random_direction = -random_direction;
+//	}
+//
+//	return glm::normalize(random_direction);
+//}
 
-	tangent = glm::normalize(glm::cross(normal, tangent));
-	bitangent = glm::cross(normal, tangent);
-}
+	static float randomFloat() {
+		static std::random_device rd;
+		static std::mt19937 gen(rd());
+		std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+		return dis(gen);
+	}
 
-// Function to generate a random direction in the hemisphere defined by the normal
-static glm::vec3 generateRandomDirection(const glm::vec3& normal) {
-	glm::vec3 tangent, bitangent;
-	createOrthonormalBasis(normal, tangent, bitangent);
+	// Function to create an orthonormal basis from a given normal vector
+	static void createOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent) {
+		tangent = glm::abs(normal.x) > 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+		tangent = glm::normalize(glm::cross(normal, tangent));
+		bitangent = glm::cross(normal, tangent);
+	}
 
-	// Generate random angles for spherical coordinates
-	float phi = 2.0f * glm::pi<float>() * randomFloat();
-	float cosTheta = randomFloat();  // Cosine-weighted hemisphere
-	float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+	// Generate a random direction within the hemisphere defined by 'normal'
+	glm::vec3 Camera::generateRandomDirection(const glm::vec3& normal) {
+		// Create an orthonormal basis based on the normal
+		glm::vec3 tangent, bitangent;
+		createOrthonormalBasis(normal, tangent, bitangent);
 
-	// Calculate direction in local space
-	glm::vec3 directionLocal = glm::vec3(
-		cos(phi) * sinTheta,
-		sin(phi) * sinTheta,
-		cosTheta
-	);
+		// Generate random spherical angles
+		float phi = 2.0f * glm::pi<float>() * randomFloat();
+		float cosTheta = randomFloat();
+		float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
 
-	// Transform to world space
-	glm::vec3 direction = directionLocal.x * tangent +
-		directionLocal.y * bitangent +
-		directionLocal.z * normal;
+		// Calculate direction in local space (aligned with the normal)
+		glm::vec3 directionLocal = glm::vec3(
+			cos(phi) * sinTheta,
+			sin(phi) * sinTheta,
+			cosTheta
+		);
 
-	return glm::normalize(direction);
-}
+		// Transform direction to world space using the orthonormal basis
+		glm::vec3 random_direction =
+			directionLocal.x * tangent +
+			directionLocal.y * bitangent +
+			directionLocal.z * normal;
+
+		return glm::normalize(random_direction);
+	}
 
 std::vector<Ray> trace_ray(Ray r, int max_bounce, Scene &scene)
 {
 	std::vector<Ray> rays;
-	std::cout << "?" << std::endl;
 	for (int i = 0; i <= max_bounce; i++) {
 		hit_info info;
 		bool found = false;
@@ -102,7 +163,6 @@ std::vector<Ray> trace_ray(Ray r, int max_bounce, Scene &scene)
 
 		for (auto& mesh : scene.meshes) {
 			hit_info tmp;
-			std::cout << "allo" << std::endl;
 			if (!mesh.hit(r, tmp)) continue;
 			found = true;
 
@@ -110,14 +170,12 @@ std::vector<Ray> trace_ray(Ray r, int max_bounce, Scene &scene)
 				info = tmp;
 		}
 
-		std::cout << "lets see" << std::endl;
 		if (!found) break;
-
-		std::cout << "new" << std::endl;
-
+		print_vector(info.pos); std::cout << std::endl;
 		r.orig = info.pos;
-		r.dir = generateRandomDirection(info.normal);
+		r.dir = Camera::generateRandomDirection(info.normal);
 		rays.push_back(r);
+
 	}
 
 	return rays;
@@ -166,10 +224,6 @@ void Camera::udpate_raytracing(glm::vec3 new_pos)
 	dv = -up * 2.f / (float)Vk::window.extent.height;
 }
 
-void print_vector(glm::vec3 const& v)
-{
-	std::cout << v.x << " " << v.y << " " << v.z;
-}
 
 void Camera::init(int w, int h, Scene *scene)
 {
@@ -212,41 +266,41 @@ void Camera::init(int w, int h, Scene *scene)
 		{pos + botton_right, white},
 		{pos + top_right, white},
 
-		{pos, white},
-		{pos + direction, white},
-		{pos + direction, white},
+		//{pos, white},
+		//{pos + direction, white},
+		//{pos + direction, white},
 
 	};
 
-	int WIDTH = 10, HEIGHT = 5;
+	int WIDTH = 100, HEIGHT = 50;
 	for (int i = 0; i < HEIGHT; i++) {
 		for (int j = 0; j < WIDTH; j++) {
 			auto DU = right * 2.f / (float)WIDTH;
 			auto DV = -up * 2.f / (float)HEIGHT;
 
+			if (!(i == 30 && j == 45)) continue;
 			auto start_point = top_left + (DU + DV) / 2.f;
-			//Ray new_ray(pos, start_point + DU * (float)j + DV * (float)i);
-			Ray new_ray(pos, direction);
+			Ray new_ray(pos, start_point + DU * (float)j + DV * (float)i);
+			//Ray new_ray(pos, top_left + right - up);
 			
 			vertices.push_back({ new_ray.orig, red });
-			vertices.push_back({ new_ray.dir, red });
-			vertices.push_back({ new_ray.dir, red });
+			vertices.push_back({ new_ray.orig + new_ray.dir, red });
+			vertices.push_back({ new_ray.orig + new_ray.dir, red });
 
-			for (int u = 0; u < 10; u++) {
+			for (int u = 0; u < 1000; u++) {
 
 				auto rays = trace_ray(new_ray, 0, *scene);
 
 				for (auto& tmp : rays) {
-					std::cout << "adding" << std::endl;
-					vertices.push_back({ tmp.orig, white });
-					vertices.push_back({ tmp.dir, white });
-					vertices.push_back({ tmp.dir, white });
+					vertices.push_back({ tmp.orig, red });
+					vertices.push_back({ tmp.orig + tmp.dir, white });
+					vertices.push_back({ tmp.orig + tmp.dir, white });
 				}
 			}
 
-			break;
+			//break;
 		}
-		break;
+		//break;
 	}
 
 	vertex_buffer.init(
@@ -273,7 +327,11 @@ void Camera::process_mouse(float dt, double x, double y)
 
 void Camera::process_scroll(float dt, double x, double y)
 {
-
+	float speed = 0.01f;
+	if (y > 0)
+		pos += direction * speed * dt;
+	if (y < 0)
+		pos += direction * speed * -dt;
 }
 
 void Camera::draw(vulkan::CommandBuffer& b)

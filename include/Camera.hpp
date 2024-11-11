@@ -16,6 +16,8 @@ public:
 	void process_mouse(float dt, double x, double y);
 	void process_scroll(float dt, double x, double y);
 
+	static glm::vec3 generateRandomDirection(const glm::vec3& normal);
+
 	glm::vec3 pos;
 	glm::vec3 target;
 	glm::vec3 direction;

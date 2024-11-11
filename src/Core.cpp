@@ -96,6 +96,7 @@ Core::Core(void)
 	glfwSetKeyCallback(Vk::window.ptr, keyCallback);
 	glfwSetCursorPosCallback(Vk::window.ptr, mouse_callback);
 	glfwSetMouseButtonCallback(Vk::window.ptr, mouse_button_callback);
+	glfwSetScrollCallback(Vk::window.ptr, scroll_callback);
 
 	init_imgui();
 
@@ -109,7 +110,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(500, 500, "Vulkan App");
+	Vk::window.init(600, 600, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	context.init(true);
@@ -180,7 +181,7 @@ void Core::init_app_resources(void)
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 	ubo_buffer.map();
-	camera_raytracing.udpate_raytracing({0.f, 6.f, 1.f});
+	camera_raytracing.udpate_raytracing({0.f, 0.f, 4.f});
 	camera_raytracing.init(Vk::window.extent.width, Vk::window.extent.height, &scene);
 
 
@@ -588,6 +589,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
 
+	core.camera.process_scroll(core.dt, xoffset, yoffset);
 }
 
 void Core::create_gizmo(void)
@@ -653,50 +655,6 @@ static bool intersectTriangle(
 	}
 }
 
-#include <random>
-#include <glm/gtx/orthonormalize.hpp>
-
-// Helper function to generate a random float between 0 and 1
-static float randomFloat() {
-	static std::random_device rd;
-	static std::mt19937 gen(rd());
-	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
-	return dis(gen);
-}
-
-// Function to create an orthonormal basis from a given normal vector
-static void createOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent) {
-	tangent = glm::abs(normal.x) > 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
-
-	tangent = glm::normalize(glm::cross(normal, tangent));
-	bitangent = glm::cross(normal, tangent);
-}
-
-// Function to generate a random direction in the hemisphere defined by the normal
-static glm::vec3 generateRandomDirection(const glm::vec3& normal) {
-	glm::vec3 tangent, bitangent;
-	createOrthonormalBasis(normal, tangent, bitangent);
-
-	// Generate random angles for spherical coordinates
-	float phi = 2.0f * glm::pi<float>() * randomFloat();
-	float cosTheta = randomFloat();  // Cosine-weighted hemisphere
-	float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
-
-	// Calculate direction in local space
-	glm::vec3 directionLocal = glm::vec3(
-		cos(phi) * sinTheta,
-		sin(phi) * sinTheta,
-		cosTheta
-	);
-
-	// Transform to world space
-	glm::vec3 direction = directionLocal.x * tangent +
-		directionLocal.y * bitangent +
-		directionLocal.z * normal;
-
-	return glm::normalize(direction);
-}
-
 glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 {
 	glm::vec3 light{};
@@ -727,8 +685,10 @@ glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 		final_color.y *= info.material.Kd.Y;
 		final_color.z *= info.material.Kd.Z;
 
+		//final_color = info.normal;
+
 		r.orig = info.pos;
-		r.dir = generateRandomDirection(info.normal);
+		r.dir = Camera::generateRandomDirection(info.normal);
 	}
 
 	if (nothing) return {};
@@ -740,8 +700,9 @@ glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 
 void Core::cpu_raytracing(void)
 {
-	int num_rays = 30;
-	int max_bounce = 2;
+	int num_rays = 200;
+	int max_bounce = 10;
+	float light_intensity = 40.f;
 
 	int width = (int)Vk::window.extent.width;
 	int height = (int)Vk::window.extent.height;
@@ -762,7 +723,7 @@ void Core::cpu_raytracing(void)
 
 		glm::vec3 color{ light.x , light.y, light.z};
 		color /= (float)num_rays;
-		color *= 255.f * 10.f;
+		color *= 255.f * light_intensity;
 		float weight = 1.f / (num_frames + 1);
 
 		if (num_frames == 0) {
