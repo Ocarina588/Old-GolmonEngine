@@ -22,7 +22,7 @@ namespace vulkan {
 		}
 		void add_write(uint32_t set, uint32_t index, uint32_t binding_index, VkBuffer buffer);
 
-		inline void write(void) { vkUpdateDescriptorSets(Context::device.ptr, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr); };
+		void write(void);
 
 		std::vector<uint32_t> sizes;
 		std::vector<VkDescriptorSetLayout> layouts;

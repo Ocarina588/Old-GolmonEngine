@@ -5,6 +5,9 @@
 using Vk = vulkan::Context;
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 std::vector<Vertex> vertices = {
 	{{0.0f, -0.5f, 1.f}, {1.0f, 0.0f, 0.0f}},
@@ -12,15 +15,87 @@ std::vector<Vertex> vertices = {
 	{{-0.5f, 0.5f, 0.f}, {0.0f, 0.0f, 1.0f}}
 };
 
+void Gizmo::init(void)
+{
+	//std::vector<Vertex> lines_v = {
+//	{{0, 0, 0}, {1, 0, 0} },
+//	{{1, 0, 0}, {1, 0, 0} },
+//	{{0, 0, 0}, {0, 1, 0} },
+//	{{0, 1, 0}, {0, 1, 0} },
+//	{{0, 0, 0}, {0, 0, 1} },
+//	{{0, 0, 1}, {0, 0, 1} }
+//};
+	float square_size = .2f, offset = 0.2f;;
+	std::vector<Vertex> squares_v = {
+		//X
+		{{0.f, offset, offset}, {1.f, 0.f, 0.f}},
+		{{0.f, offset + square_size, offset}, {1.f, 0.f, 0.f }},
+		{{0.f, offset, offset + square_size}, {1.f, 0.f, 0.f}},
+		{{0.f, offset + square_size, offset}, {1.f, 0.f, 0.f}},
+		{{0.f, offset + square_size, offset + square_size}, {1.f, 0.f, 0.f}},
+		{{0.f, offset, offset + square_size}, {1.f, 0.f, 0.f}},
+
+		//Y
+		{{offset, 0.f, offset}, {0.f, 1.f, 0.f}},
+		{{offset + square_size, 0.f, offset}, {0.f, 1.f, 0.f}},
+		{{offset, 0.f, offset + square_size}, {0.f, 1.f, 0.f}},
+		{{offset + square_size, 0.f, offset}, {0.f, 1.f, 0.f}},
+		{{offset + square_size, 0.f, offset + square_size}, {0.f, 1.f, 0.f}},
+		{{offset, 0.f, offset + square_size}, {0.f, 1.f, 0.f}},
+
+		//Z
+		{{offset, offset, 0.f}, {0.f, 0.f, 1.f}},
+		{{offset + square_size, offset, 0.f}, {0.f, 0.f, 1.f}},
+		{{offset, offset + square_size, 0.f}, {0.f, 0.f, 1.f}},
+		{{offset + square_size, offset, 0.f}, {0.f, 0.f, 1.f}},
+		{{offset + square_size, offset + square_size, 0.f}, {0.f, 0.f, 1.f}},
+		{{offset, offset + square_size, 0.f}, {0.f, 0.f, 1.f}},
+
+
+	};
+
+
+	//lines.init(
+	//	lines_v.data(),
+	//	sizeof(Vertex) * lines_v.size(),
+	//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	//);
+	squares.init(
+		squares_v.data(),
+		static_cast<uint32_t>(sizeof(Vertex) * squares_v.size()),
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	//model = glm::mat4(1.f);
+
+	////PIPELINE
+	//vulkan::Shader vertex("shaders/vertex.spv", VK_SHADER_STAGE_VERTEX_BIT);
+	//vulkan::Shader fragment("shaders/fragment.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	//pipeline.add_shader_stage(vertex.stage);
+	//pipeline.add_shader_stage(fragment.stage);
+	//pipeline.set_render_pass(render_pass);
+	//pipeline.add_binding(Vertex::getBindingDescription());
+	//for (auto i : Vertex::getAttributeDescriptions())
+	//	pipeline.add_attribute(i);
+	//pipeline.add_layout(layout);
+
+	//pipeline.init();
+}
+
 Core::Core(void)
 {
-	rendering_mode = true;
+	rendering_mode = true;;;
 
 	init_engine_resources();
 	init_app_resources();
 
 	glfwSetWindowUserPointer(Vk::window.ptr, this);
 	glfwSetKeyCallback(Vk::window.ptr, keyCallback);
+	glfwSetCursorPosCallback(Vk::window.ptr, mouse_callback);
+	glfwSetMouseButtonCallback(Vk::window.ptr, mouse_button_callback);
 
 	init_imgui();
 
@@ -34,7 +109,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(640, 360, "Vulkan App");
+	Vk::window.init(500, 500, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	context.init(true);
@@ -58,6 +133,11 @@ void Core::init_engine_resources(void)
 	);
 
 	render_pass.use_depth(depth_image); 
+
+	scene.load_obj("box.obj");
+	scene.load_obj("box.obj");
+	//scene.load_obj("models/CornellBox-Original.obj");
+
 }
 
 void Core::init_app_resources(void)
@@ -100,14 +180,18 @@ void Core::init_app_resources(void)
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 	ubo_buffer.map();
+	camera_raytracing.udpate_raytracing({0.f, 6.f, 1.f});
+	camera_raytracing.init(Vk::window.extent.width, Vk::window.extent.height, &scene);
+
 
 	//DESCRIPTORS
-	descriptors.add_set(1)
+	descriptors.add_set(2)
 		.add_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 	descriptors.init();
 
 	descriptors.add_write(0, 0, 0, ubo_buffer.ptr);
-	descriptors.write();
+	descriptors.add_write(0, 1, 0, camera_raytracing.ubo.ptr);
+	descriptors.write();;
 
 	//PIPELINE
 	vulkan::Shader vertex("shaders/vertex.spv", VK_SHADER_STAGE_VERTEX_BIT);
@@ -122,6 +206,14 @@ void Core::init_app_resources(void)
 	pipeline.add_layout(descriptors.layouts[0]);
 
 	pipeline.init();
+
+	gizmo.pipeline = pipeline;
+	gizmo.pipeline.rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
+	gizmo.pipeline.init();
+	gizmo.init();
+
+
+
 }
 
 void Core::init_imgui(void)
@@ -225,6 +317,9 @@ int Core::main(int ac, char** av)
 	FILETIME lastWriteTime = { 0 };
 
 	while (Vk::window.should_close() == false) {
+		update_dt();
+		camera.update(dt);
+		//camera_raytracing.udpate_raytracing(camera.pos);
 
 		if (tmp == false && file_loaded.empty() == false) {
 			tmp = true;
@@ -240,6 +335,8 @@ int Core::main(int ac, char** av)
 			scene.load_obj(file_loaded_n.c_str());
 		}
 
+		update_ubo();
+
 		if (rendering_mode)
 			render_gpu();
 		else 
@@ -253,25 +350,35 @@ int Core::main(int ac, char** av)
 	return 0;
 }
 
-void Core::update_ubo(void)
+void Core::update_dt(void)
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-	//time = 1.f;
+	dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+}
 
+void Core::update_ubo(void)
+{
 	UBO ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	//ubo.model = glm::1rotate(ubo.model, time * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+	ubo.model = glm::mat4(1.f);// glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	//ubo.model = glm::rotate(ubo.model, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
+	//ubo.model = glm::rotate(ubo.model, dt * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 
-	ubo.view = glm::lookAt(glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-	ubo.proj = glm::perspective(glm::radians(45.0f), Vk::window.extent.width / (float)Vk::window.extent.height, 0.1f, 10.0f);
+	ubo.view = camera.view;
+	//ubo.view = glm::lookAt(glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	ubo.proj = glm::perspective(glm::radians(45.0f), Vk::window.extent.width / (float)Vk::window.extent.height, 0.1f, 100.0f);
 
 	ubo.proj[1][1] *= -1;
 
+
 	ubo_buffer.memcpy(&ubo, sizeof(ubo));
+
+	ubo.model = camera_raytracing.model;
+
+	camera_raytracing.ubo.memcpy(&ubo, sizeof(ubo));
 }
 
 std::string ask_file(char const* filter)
@@ -316,20 +423,27 @@ void Core::render_gpu(void)
 	}
 	file_to_load = "";
 
+	
 	command_buffer.begin(true);
 	{
 		render_pass.begin(command_buffer, Vk::window.extent, offscreen_buffer);
+
 		pipeline.bind(command_buffer);
 
-		update_ubo();
-
 		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptors.get_set(0, 0), 0, nullptr);
+		scene.draw(command_buffer); 
 		
 		//VkDeviceSize offset = 0;
 		//vkCmdBindVertexBuffers(command_buffer.ptr, 0, 1, &vertex_buffer.ptr, &offset);
 		//vkCmdDraw(command_buffer.ptr, 3, 1, 0, 0);
+	
+		gizmo.pipeline.bind(command_buffer);
 
-		scene.draw(command_buffer);
+		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 0), 0, nullptr);
+		gizmo.draw(command_buffer);
+
+		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 1), 0, nullptr);
+		camera_raytracing.draw(command_buffer);
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -403,8 +517,14 @@ void copyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage i
 	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 }
 
+#include <thread>
+
 void Core::render_cpu(void)
 {
+	//static std::thread l([&] {
+	//	while (true) cpu_raytracing();
+	//});
+
 	cpu_raytracing();
 
 	command_buffer.begin();
@@ -445,28 +565,42 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	}
 }
 
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+	static double old_xpos = 0;
+	static double old_ypos = 0;
+	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
+	if (core.clicked)
+		core.camera.process_mouse(core.dt, xpos - old_xpos, ypos - old_ypos);
+	old_xpos = xpos;
+	old_ypos = ypos;
+}
+
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+		core.clicked = true;
+	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+		core.clicked = false;
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
+
+}
+
+void Core::create_gizmo(void)
+{
+
+
+
+}
+
 #include <omp.h>
 
 #define BEGIN_LOOP _Pragma("omp parallel for collapse(2)") for (int y = 0; y < height; y++) { for (int x = 0; x < width; x++) { uint32_t index = y * width + x;
 #define END_LOOP }}
-
-class ray {
-public:
-	ray() {}
-
-	ray(const glm::vec3& origin, const glm::vec3& direction) : orig(origin), dir(direction) {}
-
-	const glm::vec3& origin() const { return orig; }
-	const glm::vec3& direction() const { return dir; }
-
-	glm::vec3 at(float t) const {
-		return orig + t * dir;
-	}
-
-private:
-	glm::vec3 orig;
-	glm::vec3 dir;
-};
 
 struct pixel_s {
 	unsigned char b = 0;
@@ -475,16 +609,174 @@ struct pixel_s {
 	unsigned char a = 255;
 };
 
+static bool intersectTriangle(
+	Ray &ray,
+	const glm::vec3& v0,    // First vertex of the triangle
+	const glm::vec3& v1,    // Second vertex of the triangle
+	const glm::vec3& v2,    // Third vertex of the triangle
+	float& t,               // Distance to intersection point (output)
+	glm::vec3& intersectionPoint) // Intersection point (output)
+{
+	const float EPSILON = 1e-8;
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+	glm::vec3 h = glm::cross(ray.dir, edge2);
+	float a = glm::dot(edge1, h);
+
+	if (a > -EPSILON && a < EPSILON) {
+		return false; // Ray is parallel to the triangle
+	}
+
+	float f = 1.0f / a;
+	glm::vec3 s = ray.orig - v0;
+	float u = f * glm::dot(s, h);
+
+	if (u < 0.0f || u > 1.0f) {
+		return false; // Intersection is outside the triangle
+	}
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(ray.dir, q);
+
+	if (v < 0.0f || u + v > 1.0f) {
+		return false; // Intersection is outside the triangle
+	}
+
+	t = f * glm::dot(edge2, q);
+
+	if (t > EPSILON) { // Ray intersection
+		intersectionPoint = ray.orig + ray.dir * t;
+		return true;
+	}
+	else {
+		return false; // Intersection is behind the ray origin
+	}
+}
+
+#include <random>
+#include <glm/gtx/orthonormalize.hpp>
+
+// Helper function to generate a random float between 0 and 1
+static float randomFloat() {
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+	return dis(gen);
+}
+
+// Function to create an orthonormal basis from a given normal vector
+static void createOrthonormalBasis(const glm::vec3& normal, glm::vec3& tangent, glm::vec3& bitangent) {
+	tangent = glm::abs(normal.x) > 0.99f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f);
+
+	tangent = glm::normalize(glm::cross(normal, tangent));
+	bitangent = glm::cross(normal, tangent);
+}
+
+// Function to generate a random direction in the hemisphere defined by the normal
+static glm::vec3 generateRandomDirection(const glm::vec3& normal) {
+	glm::vec3 tangent, bitangent;
+	createOrthonormalBasis(normal, tangent, bitangent);
+
+	// Generate random angles for spherical coordinates
+	float phi = 2.0f * glm::pi<float>() * randomFloat();
+	float cosTheta = randomFloat();  // Cosine-weighted hemisphere
+	float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+
+	// Calculate direction in local space
+	glm::vec3 directionLocal = glm::vec3(
+		cos(phi) * sinTheta,
+		sin(phi) * sinTheta,
+		cosTheta
+	);
+
+	// Transform to world space
+	glm::vec3 direction = directionLocal.x * tangent +
+		directionLocal.y * bitangent +
+		directionLocal.z * normal;
+
+	return glm::normalize(direction);
+}
+
+glm::vec3 Core::trace_ray(Ray r, int max_bounce)
+{
+	glm::vec3 light{};
+	glm::vec3 final_color{1.f, 1.f, 1.f};
+	bool nothing = true;
+	int direct_light = 0;
+	for (int i = 0; i <= max_bounce; i++) {
+		hit_info info;
+		bool found = false;
+
+		for (auto& mesh : scene.meshes) {
+			hit_info tmp;
+			if (!mesh.hit(r, tmp)) continue;
+			found = true;
+			nothing = false;
+
+			if (tmp.distance < info.distance)
+				info = tmp;
+		}
+
+		if (!found) break;
+
+		light.x += final_color.x * info.material.Ks.X * 3.f;;
+		light.y += final_color.y * info.material.Ks.Y * 3.f;;
+		light.z += final_color.z * info.material.Ks.Z * 3.f;;
+
+		final_color.x *= info.material.Kd.X;
+		final_color.y *= info.material.Kd.Y;
+		final_color.z *= info.material.Kd.Z;
+
+		r.orig = info.pos;
+		r.dir = generateRandomDirection(info.normal);
+	}
+
+	if (nothing) return {};
+
+	//return final_color;
+
+	return light;
+}
+
 void Core::cpu_raytracing(void)
 {
+	int num_rays = 30;
+	int max_bounce = 2;
+
 	int width = (int)Vk::window.extent.width;
 	int height = (int)Vk::window.extent.height;
+
 	pixel_s* screen = (pixel_s *)staging_buffer.data;
+
+	auto start_point = camera_raytracing.top_left + (camera_raytracing.du + camera_raytracing.dv) / 2.f;
+	static int num_frames = 0;
 
 	BEGIN_LOOP(width, height);
 
-		screen[index].r = char((float)x / width * 255);
-		screen[index].g = char((float)y / height * 255);
+		Ray new_ray(camera_raytracing.pos, start_point + camera_raytracing.du * (float)x + camera_raytracing.dv * (float)y);
+		//screen[index] = {};
+		glm::vec3 light = {};
+
+		for (int i = 0; i < num_rays ; i++)
+			light += trace_ray(new_ray, max_bounce);
+
+		glm::vec3 color{ light.x , light.y, light.z};
+		color /= (float)num_rays;
+		color *= 255.f * 10.f;
+		float weight = 1.f / (num_frames + 1);
+
+		if (num_frames == 0) {
+			screen[index].r = (char)std::clamp(color.x, 0.f, 255.f);
+			screen[index].g = (char)std::clamp(color.y, 0.f, 255.f);
+			screen[index].b = (char)std::clamp(color.z, 0.f, 255.f);
+		}
+		else {
+			screen[index].r = screen[index].r * (1.f - weight) + (char)std::clamp(color.x, 0.f, 255.f) * weight;
+			screen[index].g = screen[index].g * (1.f - weight) + (char)std::clamp(color.y, 0.f, 255.f) * weight;
+			screen[index].b = screen[index].b * (1.f - weight) + (char)std::clamp(color.z, 0.f, 255.f) * weight;
+		}
 
 	END_LOOP;
+
+	num_frames;
 }

@@ -1,5 +1,5 @@
+#define DEFINE_OBJLOADER
 #include "Model.hpp"
-#include "objloader.hpp"
 
 Mesh::Mesh(void)
 {
@@ -20,10 +20,77 @@ void Mesh::init(void* data, size_t size)
 	);
 }
 
+static bool intersectTriangle(
+	Ray& ray,
+	const glm::vec3& v0,    // First vertex of the triangle
+	const glm::vec3& v1,    // Second vertex of the triangle
+	const glm::vec3& v2,    // Third vertex of the triangle
+	float& t,               // Distance to intersection point (output)
+	glm::vec3& intersectionPoint) // Intersection point (output)
+{
+	const float EPSILON = 1e-8;
+	glm::vec3 edge1 = v1 - v0;
+	glm::vec3 edge2 = v2 - v0;
+	glm::vec3 h = glm::cross(ray.dir, edge2);
+	float a = glm::dot(edge1, h);
+
+	if (a > -EPSILON && a < EPSILON) {
+		return false; // Ray is parallel to the triangle
+	}
+
+	float f = 1.0f / a;
+	glm::vec3 s = ray.orig - v0;
+	float u = f * glm::dot(s, h);
+
+	if (u < 0.0f || u > 1.0f) {
+		return false; // Intersection is outside the triangle
+	}
+
+	glm::vec3 q = glm::cross(s, edge1);
+	float v = f * glm::dot(ray.dir, q);
+
+	if (v < 0.0f || u + v > 1.0f) {
+		return false; // Intersection is outside the triangle
+	}
+
+	t = f * glm::dot(edge2, q);
+
+	if (t > EPSILON) { // Ray intersection
+		intersectionPoint = ray.orig + ray.dir * t;
+		return true;
+	}
+	else {
+		return false; // Intersection is behind the ray origin
+	}
+}
+
 void Mesh::init(std::vector<Vertex>& _vertices)
 {
 	vertices = _vertices;
 	init(vertices.data(), vertices.size() * sizeof(Vertex));
+}
+
+bool Mesh::hit(Ray& r, hit_info &info)
+{
+	bool found = false;
+	float distance = 0.f;
+	for (int i = 0; i < vertices.size(); i += 3) {
+		auto const& a = vertices[i];
+		auto const& b = vertices[i + 1];
+		auto const& c = vertices[i + 2];
+		glm::vec3 tmp{};
+
+		if (intersectTriangle(r, a.pos, b.pos, c.pos, distance, tmp)) {
+			if (distance < info.distance) {
+				info.distance = distance;
+				info.normal = a.color;
+				info.pos = tmp;
+				info.material = material;
+				found = true;
+			}
+		}
+	}
+	return found;
 }
 
 Model::Model(void)
@@ -67,7 +134,7 @@ void Scene::load_obj(char const* obj)
 
 	for (int i = 0; i < loader.LoadedMeshes.size(); i ++) {
 		auto& mesh = loader.LoadedMeshes[i];
-
+		
 		std::vector<Vertex> vertices;
 		std::vector<glm::vec3> ns(mesh.Indices.size());
 		for (int j = 0; j < mesh.Indices.size(); j += 3) {
@@ -84,10 +151,13 @@ void Scene::load_obj(char const* obj)
 		}
 		for (auto& i : ns)
 			i = glm::normalize(i);
-		for (int i = 0; i < mesh.Indices.size(); i++)
-			vertices[i].color = ns[mesh.Indices[i]];
+		for (int j = 0; j < mesh.Indices.size(); j++)
+			vertices[j].color = ns[mesh.Indices[j]];
 
 		meshes[i].init(vertices);
+		meshes[i].material = mesh.MeshMaterial;
+		std::cout << mesh.MeshName << " " << mesh.MeshMaterial.illum << std::endl;
+		meshes[i].name = mesh.MeshName;
 	}
 
 	offsets.resize(meshes.size());

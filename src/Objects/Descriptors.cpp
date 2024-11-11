@@ -31,7 +31,7 @@ void DescriptorPool::init(void)
 		if (vkCreateDescriptorSetLayout(Context::device.ptr, &layout_create_info, nullptr, &layouts[i]) != VK_SUCCESS) throw std::runtime_error("failed to create descriptor set");
 
 		for (auto j : bindings[i])
-			m[j.descriptorType]++;
+			m[j.descriptorType] += sizes[i];
 
 		size += sizes[i];
 	}
@@ -46,7 +46,7 @@ void DescriptorPool::init(void)
 	for (auto i : m)
 		pool_size.emplace_back(i.first, i.second);
 
-	create_info.maxSets = static_cast<uint32_t>(bindings.size());
+	create_info.maxSets = static_cast<uint32_t>(size);
 	create_info.poolSizeCount = static_cast<uint32_t>(pool_size.size());;
 	create_info.pPoolSizes = pool_size.data();
 
@@ -60,6 +60,8 @@ void DescriptorPool::init(void)
 	sets.resize(size);
 
 	if (vkAllocateDescriptorSets(Context::device.ptr, &alloc_info, sets.data()) != VK_SUCCESS) throw std::runtime_error("failed to allocate descriptor set");
+
+	buffers_info.reserve(size);
 }
 
 void DescriptorPool::add_write(uint32_t set, uint32_t index, uint32_t binding_index, VkBuffer buffer)
@@ -71,7 +73,12 @@ void DescriptorPool::add_write(uint32_t set, uint32_t index, uint32_t binding_in
 	ws.dstBinding = bindings[set][binding_index].binding;
 	ws.descriptorCount = bindings[set][binding_index].descriptorCount;
 	ws.descriptorType = bindings[set][binding_index].descriptorType;
-	ws.pBufferInfo = &*buffers_info.rbegin();
+	ws.pBufferInfo = &buffers_info[buffers_info.size() - 1];
 
 	writes.push_back(ws);
+}
+
+void DescriptorPool::write(void)
+{
+	vkUpdateDescriptorSets(Context::device.ptr, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }

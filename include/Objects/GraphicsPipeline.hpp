@@ -54,6 +54,23 @@ namespace vulkan {
 
 		VkPipelineLayout layout = nullptr;
 		VkPipeline ptr = nullptr;
+
+		VkPipelineVertexInputStateCreateInfo vertex_input_state{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
+		VkPipelineInputAssemblyStateCreateInfo input_assembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
+		VkPipelineRasterizationStateCreateInfo rasterizer{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+			.polygonMode = VK_POLYGON_MODE_FILL,
+			.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			.lineWidth = 1.f,
+		};
+		VkPipelineDepthStencilStateCreateInfo depthStencil{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
+		VkPipelineMultisampleStateCreateInfo multisample{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
+		VkPipelineViewportStateCreateInfo viewport_state{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
+		VkViewport viewport{};
+		VkRect2D scissors{};
+		VkPipelineColorBlendAttachmentState attachment{};
+		VkPipelineColorBlendStateCreateInfo color_blend{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO };
+
 	private:
 
 		VkRenderPass render_pass = nullptr;
@@ -61,7 +78,8 @@ namespace vulkan {
 		std::vector<VkVertexInputBindingDescription> bindings;
 		std::vector<VkVertexInputAttributeDescription> attributes;
 		std::vector<VkDescriptorSetLayout> layouts;
-		VkPipelineDepthStencilStateCreateInfo depthStencil{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO };
+
+
 
 	};
 }

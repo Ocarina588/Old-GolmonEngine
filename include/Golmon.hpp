@@ -9,3 +9,4 @@
 #include "Objects/Sync.hpp"
 #include "Objects/Commands.hpp"
 #include "Objects/Descriptors.hpp"
+#include "Model.hpp"

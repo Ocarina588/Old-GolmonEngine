@@ -8,6 +8,8 @@
 #include "Context/Context.hpp"
 #include "Objects/Buffer.hpp"
 #include "Objects/Commands.hpp"
+#include "objloader.hpp"
+
 
 struct Vertex {
 	glm::vec3 pos;
@@ -45,6 +47,27 @@ struct UBO {
 	glm::mat4 proj;
 };
 
+class Ray {
+public:
+	Ray() {}
+
+	Ray(const glm::vec3& origin, const glm::vec3& direction) : orig(origin), dir(direction) {}
+
+	glm::vec3 at(float t) const {
+		return orig + t * dir;
+	}
+
+	glm::vec3 orig;
+	glm::vec3 dir;
+};
+
+struct hit_info {
+	float distance = 100000.f;
+	objl::Material material;
+	glm::vec3 pos;
+	glm::vec3 normal;
+};
+
 class Mesh {
 public:
 	Mesh(void);
@@ -53,8 +76,11 @@ public:
 	void init(void* data, size_t size);
 	void init(std::vector<Vertex>& _vertices);
 
+	bool hit(Ray& r, hit_info &info);
 	vulkan::Buffer buffer;
 	std::vector<Vertex> vertices;
+	objl::Material material;
+	std::string name;
 
 private:
 };

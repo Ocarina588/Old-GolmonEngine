@@ -32,8 +32,13 @@ void Device::init(VkInstance instance, VkSurfaceKHR surface)
 	queue_create_info.queueFamilyIndex = index.graphics;
 	queue_create_info.pQueuePriorities = &priority;
 
+	VkPhysicalDeviceFeatures features{};
+	features.fillModeNonSolid = true;
+	features.wideLines = true;
+
 	create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	create_info.ppEnabledExtensionNames = extensions.data();
+	create_info.pEnabledFeatures = &features;
 	create_info.pQueueCreateInfos = &queue_create_info;
 	create_info.queueCreateInfoCount = 1;
 	

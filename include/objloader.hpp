@@ -219,6 +219,8 @@ namespace objl
 	//
 	// Description: The namespace that holds all of the math
 	//	functions need for OBJL
+
+#ifdef DEFINE_OBJLOADER
 	namespace math
 	{
 		// Vector3 Cross Product
@@ -443,6 +445,7 @@ namespace objl
 			LoadedMeshes.clear();
 			LoadedVertices.clear();
 			LoadedIndices.clear();
+			LoadedMaterials.clear();
 
 			std::vector<Vector3> Positions;
 			std::vector<Vector2> TCoords;
@@ -1164,4 +1167,7 @@ namespace objl
 				return true;
 		}
 	};
+
+#endif
+
 }
