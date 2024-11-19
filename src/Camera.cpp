@@ -280,23 +280,23 @@ void Camera::init(int w, int h, Scene *scene)
 
 			if (!(i == 30 && j == 45)) continue;
 			auto start_point = top_left + (DU + DV) / 2.f;
-			Ray new_ray(pos, start_point + DU * (float)j + DV * (float)i);
-			//Ray new_ray(pos, top_left + right - up);
+			//Ray new_ray(pos, start_point + DU * (float)j + DV * (float)i);
+			Ray new_ray(pos, top_left + right - up);
 			
 			vertices.push_back({ new_ray.orig, red });
 			vertices.push_back({ new_ray.orig + new_ray.dir, red });
 			vertices.push_back({ new_ray.orig + new_ray.dir, red });
 
-			for (int u = 0; u < 1000; u++) {
+			//for (int u = 0; u < 100; u++) {
 
-				auto rays = trace_ray(new_ray, 0, *scene);
+			//	auto rays = trace_ray(new_ray, 0, *scene);
 
-				for (auto& tmp : rays) {
-					vertices.push_back({ tmp.orig, red });
-					vertices.push_back({ tmp.orig + tmp.dir, white });
-					vertices.push_back({ tmp.orig + tmp.dir, white });
-				}
-			}
+			//	for (auto& tmp : rays) {
+			//		vertices.push_back({ tmp.orig, red });
+			//		vertices.push_back({ tmp.orig + tmp.dir, white });
+			//		vertices.push_back({ tmp.orig + tmp.dir, white });
+			//	}
+			//}
 
 			//break;
 		}
@@ -327,7 +327,7 @@ void Camera::process_mouse(float dt, double x, double y)
 
 void Camera::process_scroll(float dt, double x, double y)
 {
-	float speed = 0.01f;
+	float speed = 0.001f;
 	if (y > 0)
 		pos += direction * speed * dt;
 	if (y < 0)

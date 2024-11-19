@@ -53,10 +53,17 @@ void Instance::init(void)
 	auto messenger_create_info = get_messenger_create_info();
 	bool debug = std::find(extensions.begin(), extensions.end(), VK_EXT_DEBUG_UTILS_EXTENSION_NAME) != extensions.end();
 
+	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	app_info.pApplicationName = "GolmonEngine";
+	app_info.apiVersion = VK_MAKE_VERSION(1, 3, 0);
+	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.pEngineName = "GolmonEngine";
+
 	create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	create_info.ppEnabledExtensionNames = extensions.data();
 	create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
 	create_info.ppEnabledLayerNames = layers.data();
+	create_info.pApplicationInfo = &app_info;
 
 	if (debug)
 		create_info.pNext = &messenger_create_info;

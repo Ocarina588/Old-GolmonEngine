@@ -83,9 +83,9 @@ bool Mesh::hit(Ray& r, hit_info &info)
 		if (intersectTriangle(r, a.pos, b.pos, c.pos, distance, tmp)) {
 			if (distance < info.distance) {
 				info.distance = distance;
-				info.normal = a.color;
+				info.normal = a.normal;
 				info.pos = tmp;
-				info.material = material;
+				info.material_index = material_index;
 				found = true;
 			}
 		}
@@ -115,58 +115,108 @@ Scene::~Scene(void)
 
 void Scene::load_obj(char const* obj)
 {
+	//meshes.clear();
+	//buffers.clear();
+	//offsets.clear();
+
+	//std::cout << meshes.size() << std::endl;
+
+	//objl::Loader loader;
+	//static int lol = 0;
+	//printf("%s\n", obj);
+	//if (lol++)
+	//	if (loader.LoadFile(obj) == false) throw std::runtime_error("failed to load obj");
+	//else
+	//	if (loader.LoadFile(obj) == false) throw std::runtime_error("failed to load obj");
+
+
+	//meshes.resize(loader.LoadedMeshes.size());
+
+	//for (int i = 0; i < loader.LoadedMeshes.size(); i ++) {
+	//	auto& mesh = loader.LoadedMeshes[i];
+	//	
+	//	std::vector<Vertex> vertices;
+	//	std::vector<glm::vec3> ns(mesh.Indices.size());
+	//	for (int j = 0; j < mesh.Indices.size(); j += 3) {
+	//		glm::vec3* a = (glm::vec3*)&mesh.Vertices[mesh.Indices[j]].Position;
+	//		glm::vec3* b = (glm::vec3*)&mesh.Vertices[mesh.Indices[j + 1]].Position;
+	//		glm::vec3* c = (glm::vec3*)&mesh.Vertices[mesh.Indices[j + 2]].Position;
+	//		glm::vec3 n = glm::normalize(glm::cross(*b - *a, *c - *a));
+	//		ns[mesh.Indices[j]] += n;
+	//		ns[mesh.Indices[j + 1]] += n;
+	//		ns[mesh.Indices[j + 2]] += n;
+	//		vertices.push_back({ {a->x, a->y, a->z},{} });
+	//		vertices.push_back({ {b->x, b->y, b->z},{} });
+	//		vertices.push_back({ {c->x, c->y, c->z},{} });
+	//	}
+	//	for (auto& i : ns)
+	//		i = glm::normalize(i);
+	//	for (int j = 0; j < mesh.Indices.size(); j++)
+	//		vertices[j].normal = ns[mesh.Indices[j]];
+
+	//	meshes[i].init(vertices);
+	//	meshes[i].material = mesh.MeshMaterial;
+	//	std::cout << mesh.MeshName << " " << mesh.MeshMaterial.illum << std::endl;
+	//	meshes[i].name = mesh.MeshName;
+	//}
+
+	//offsets.resize(meshes.size());
+	//for (int i = 0; i < meshes.size(); i++) {
+	//	buffers.push_back(meshes[i].buffer.ptr);
+	//	total_size += (uint32_t)meshes[i].vertices.size();
+	//}
+
+	//std::cout << meshes.size() << " " << buffers.size() << " " << total_size << std::endl;
+}
+
+void Scene::load_scene(std::string const& file_name)
+{
 	meshes.clear();
 	buffers.clear();
 	offsets.clear();
 
-	std::cout << meshes.size() << std::endl;
+	Assimp::Importer importer;
+	aiScene const * scene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs);
+	if (!scene)
+		throw std::runtime_error(importer.GetErrorString());
 
-	objl::Loader loader;
-	static int lol = 0;
-	printf("%s\n", obj);
-	if (lol++)
-		if (loader.LoadFile(obj) == false) throw std::runtime_error("failed to load obj");
-	else
-		if (loader.LoadFile(obj) == false) throw std::runtime_error("failed to load obj");
+	meshes.resize(scene->mNumMeshes);
+	buffers.resize(scene->mNumMeshes);
+	materials.resize(scene->mNumMaterials);
+	std::cout << scene->mNumMaterials << std::endl;
 
-
-	meshes.resize(loader.LoadedMeshes.size());
-
-	for (int i = 0; i < loader.LoadedMeshes.size(); i ++) {
-		auto& mesh = loader.LoadedMeshes[i];
+	for (int i = 0; i < scene->mNumMeshes; i++) {
+		aiMesh* mesh = scene->mMeshes[i];
 		
-		std::vector<Vertex> vertices;
-		std::vector<glm::vec3> ns(mesh.Indices.size());
-		for (int j = 0; j < mesh.Indices.size(); j += 3) {
-			glm::vec3* a = (glm::vec3*)&mesh.Vertices[mesh.Indices[j]].Position;
-			glm::vec3* b = (glm::vec3*)&mesh.Vertices[mesh.Indices[j + 1]].Position;
-			glm::vec3* c = (glm::vec3*)&mesh.Vertices[mesh.Indices[j + 2]].Position;
-			glm::vec3 n = glm::normalize(glm::cross(*b - *a, *c - *a));
-			ns[mesh.Indices[j]] += n;
-			ns[mesh.Indices[j + 1]] += n;
-			ns[mesh.Indices[j + 2]] += n;
-			vertices.push_back({ {a->x, a->y, a->z},{} });
-			vertices.push_back({ {b->x, b->y, b->z},{} });
-			vertices.push_back({ {c->x, c->y, c->z},{} });
+		for (int j = 0; j < mesh->mNumFaces; j++) {
+
+			for (int k = 0; k < 3; k++) {
+				int index = mesh->mFaces[j].mIndices[k];
+				meshes[i].vertices.push_back({
+						{(float)mesh->mVertices[index].x, (float)mesh->mVertices[index].y, (float)mesh->mVertices[index].z},
+						{(float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z}
+						//{(float)mesh->mTextureCoords[j]->x, (float)mesh->mTextureCoords[j]->y}
+						//{0.f, 0.f}
+					});
+			}
 		}
-		for (auto& i : ns)
-			i = glm::normalize(i);
-		for (int j = 0; j < mesh.Indices.size(); j++)
-			vertices[j].color = ns[mesh.Indices[j]];
 
-		meshes[i].init(vertices);
-		meshes[i].material = mesh.MeshMaterial;
-		std::cout << mesh.MeshName << " " << mesh.MeshMaterial.illum << std::endl;
-		meshes[i].name = mesh.MeshName;
+		meshes[i].init(meshes[i].vertices.data(), sizeof(Vertex) * meshes[i].vertices.size());
+		
+		
+		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, *(aiColor3D*)&materials[mesh->mMaterialIndex].diffuse) != AI_SUCCESS)
+			materials[mesh->mMaterialIndex].diffuse = { 1.f, 0.f, 0.f };
+		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_SPECULAR, *(aiColor3D*)&materials[mesh->mMaterialIndex].specular) != AI_SUCCESS)
+			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
+		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_EMISSIVE, *(aiColor3D*)&materials[mesh->mMaterialIndex].emissive) != AI_SUCCESS)
+			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
+
+		meshes[i].material_index = mesh->mMaterialIndex;
+		std::cout << i << " " << mesh->mMaterialIndex << std::endl;
+		materials[mesh->mMaterialIndex].name = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();
 	}
 
-	offsets.resize(meshes.size());
-	for (int i = 0; i < meshes.size(); i++) {
-		buffers.push_back(meshes[i].buffer.ptr);
-		total_size += (uint32_t)meshes[i].vertices.size();
-	}
 
-	std::cout << meshes.size() << " " << buffers.size() << " " << total_size << std::endl;
 }
 
 void Scene::draw(vulkan::CommandBuffer& b)

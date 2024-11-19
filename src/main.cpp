@@ -177,13 +177,12 @@
 
 int main(int ac, char** av)
 {
-	try {
+	//try {
 		Core core;
-
 		return core.main(ac, av);
-	}
-	catch (std::exception e) {
-		std::cout << e.what() << std::endl;
-	}
+	//}
+	//catch (std::exception e) {
+		//std::cout << e.what() << std::endl;
+	//}
 	return 1;
 }

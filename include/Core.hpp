@@ -79,8 +79,12 @@ public:
 
 	float dt = 0;
 	bool clicked = false;
-	Camera camera{ {0.0f, 5.0f, 5.0f}, {} };
+	Camera camera{ {0.0f, 0.0f, 4.f}, {} };
 	Camera camera_raytracing{ {0.f, 0.f, 3.5f}, {} };
+	int num_rays = 1 , max_bounce = 1;
+	std::string file_to_load;
+	float light_intensity = 1.f;
+	int infinity = true;
 	Scene scene;
 	Gizmo gizmo;
 };

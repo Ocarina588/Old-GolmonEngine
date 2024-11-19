@@ -4,6 +4,9 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <array>
+#include <assimp/Importer.hpp>      // Assimp importer class
+#include <assimp/scene.h>  
+#include <assimp/postprocess.h>// Main data structure for scenes
 #include "utils.hpp"
 #include "Context/Context.hpp"
 #include "Objects/Buffer.hpp"
@@ -11,9 +14,11 @@
 #include "objloader.hpp"
 
 
+
 struct Vertex {
 	glm::vec3 pos;
-	glm::vec3 color;
+	glm::vec3 normal;
+	//glm::vec2 text_coord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
@@ -35,10 +40,24 @@ struct Vertex {
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attributeDescriptions[1].offset = offsetof(Vertex, color);
+		attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+		//attributeDescriptions[2].binding = 0;
+		//attributeDescriptions[2].location = 2;
+		//attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+		//attributeDescriptions[2].offset = offsetof(Vertex, text_coord);
 
 		return attributeDescriptions;
 	}
+};
+
+struct material_s {
+	std::string name;
+	glm::vec3 diffuse;
+	glm::vec3 specular;
+	glm::vec3 emissive;
+	float smooth = 0.f;
+	float specular_probability = 0.f;
 };
 
 struct UBO {
@@ -63,7 +82,7 @@ public:
 
 struct hit_info {
 	float distance = 100000.f;
-	objl::Material material;
+	int material_index;
 	glm::vec3 pos;
 	glm::vec3 normal;
 };
@@ -79,8 +98,8 @@ public:
 	bool hit(Ray& r, hit_info &info);
 	vulkan::Buffer buffer;
 	std::vector<Vertex> vertices;
-	objl::Material material;
 	std::string name;
+	int material_index;
 
 private:
 };
@@ -100,9 +119,11 @@ public:
 	void draw(vulkan::CommandBuffer& b);
 
 	void load_obj(char const* file_name);
+	void load_scene(std::string const& file_name);
 	std::vector<Mesh> meshes;
 	std::vector<VkBuffer> buffers;
 	std::vector<VkDeviceSize> offsets;
+	std::vector<material_s> materials;
 	uint32_t total_size = 0;
 private:
 };

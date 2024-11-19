@@ -35,6 +35,10 @@ void Gizmo::init(void)
 		{{0.f, offset + square_size, offset + square_size}, {1.f, 0.f, 0.f}},
 		{{0.f, offset, offset + square_size}, {1.f, 0.f, 0.f}},
 
+		{{0.f, 0.f, 0.f}, {1.f, 0.f, 0.f}},
+		{{offset, 0.f, 0.f}, {1.f, 0.f, 0.f}},
+		{{offset, 0.f, 0.f}, {1.f, 0.f, 0.f}},
+
 		//Y
 		{{offset, 0.f, offset}, {0.f, 1.f, 0.f}},
 		{{offset + square_size, 0.f, offset}, {0.f, 1.f, 0.f}},
@@ -43,6 +47,11 @@ void Gizmo::init(void)
 		{{offset + square_size, 0.f, offset + square_size}, {0.f, 1.f, 0.f}},
 		{{offset, 0.f, offset + square_size}, {0.f, 1.f, 0.f}},
 
+		{{0.f, 0.f, 0.f}, {0.f, 1.f, 0.f}},
+		{{0.f, offset, 0.f}, {0.f, 1.f, 0.f}},
+		{{0.f, offset, 0.f}, {0.f, 1.f, 0.f}},
+
+
 		//Z
 		{{offset, offset, 0.f}, {0.f, 0.f, 1.f}},
 		{{offset + square_size, offset, 0.f}, {0.f, 0.f, 1.f}},
@@ -50,6 +59,11 @@ void Gizmo::init(void)
 		{{offset + square_size, offset, 0.f}, {0.f, 0.f, 1.f}},
 		{{offset + square_size, offset + square_size, 0.f}, {0.f, 0.f, 1.f}},
 		{{offset, offset + square_size, 0.f}, {0.f, 0.f, 1.f}},
+
+		{{0.f, 0.f, 0.f}, {0.f, 0.f, 1.f}},
+		{{0.f, 0.f, offset}, {0.f, 0.f, 1.f}},
+		{{0.f, 0.f, offset}, {0.f, 0.f, 1.f}},
+
 
 
 	};
@@ -110,9 +124,8 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(600, 600, "Vulkan App");
+	Vk::window.init(900, 900, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
-
 	context.init(true);
 
 	finished_rendering.init();
@@ -135,8 +148,9 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_obj("box.obj");
-	scene.load_obj("box.obj");
+	//scene.load_obj("monkey.obj");
+	//scene.load_scene("corneil.obj");
+	//scene.load_obj("monkey.obj");
 	//scene.load_obj("models/CornellBox-Original.obj");
 
 }
@@ -320,7 +334,7 @@ int Core::main(int ac, char** av)
 	while (Vk::window.should_close() == false) {
 		update_dt();
 		camera.update(dt);
-		//camera_raytracing.udpate_raytracing(camera.pos);
+		camera_raytracing.udpate_raytracing(camera.pos);
 
 		if (tmp == false && file_loaded.empty() == false) {
 			tmp = true;
@@ -418,7 +432,7 @@ void Core::render_gpu(void)
 	static std::string file_to_load = "";
 
 	if (file_to_load != "") {
-		scene.load_obj(file_to_load.c_str());
+		scene.load_scene(file_to_load.c_str());
 		file_loaded = StringToWString(file_to_load);
 		file_loaded_n = file_to_load;
 	}
@@ -441,10 +455,10 @@ void Core::render_gpu(void)
 		gizmo.pipeline.bind(command_buffer);
 
 		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 0), 0, nullptr);
-		gizmo.draw(command_buffer);
+		gizmo.draw(command_buffer);;;
 
-		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 1), 0, nullptr);
-		camera_raytracing.draw(command_buffer);
+		//vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 1), 0, nullptr);
+		//camera_raytracing.draw(command_buffer);
 
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -457,9 +471,11 @@ void Core::render_gpu(void)
 
 
 			if (ImGui::BeginMenu("File")) {
-				if (ImGui::MenuItem("Open file")) file_to_load = ask_file("Obj files (*.obj)\0*.obj\0").c_str();
+				if (ImGui::MenuItem("Open file")) file_to_load = ask_file("").c_str();
 				ImGui::EndMenu();
 			}
+
+			//ImGui::ShowDemoWindow();
 
 			//if (ImGui::BeginMenu("Project")) {
 			//	if (ImGui::MenuItem("Terrain")) {
@@ -481,6 +497,38 @@ void Core::render_gpu(void)
 
 			ImGui::EndMainMenuBar();
 		}
+
+		static int selected = 0;
+
+		if (scene.meshes.empty() == false) {
+			if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
+				ImGui::InputInt("num rays", &num_rays);
+				ImGui::InputInt("max bounce", &max_bounce);
+				ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
+				ImGui::InputInt("infinity", &infinity);
+
+				ImGui::InputFloat3("Diffuse", (float*)&scene.materials[selected].diffuse);
+				ImGui::InputFloat3("Specular", (float*)&scene.materials[selected].specular);
+				ImGui::InputFloat3("Emissive", (float*)&scene.materials[selected].emissive);
+				ImGui::SliderFloat("Smooth", &scene.materials[selected].smooth, 0.f, 1.f);
+				ImGui::SliderFloat("Specular Probability", &scene.materials[selected].specular_probability, 0.f, 1.f);
+				ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+				for (int i = 0; i < scene.materials.size(); i++)
+				{
+					// FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
+					char label[128];
+					sprintf_s(label, "Material: %s", scene.materials[i].name.c_str());
+					if (ImGui::Selectable(label, selected == i))
+						selected = i;
+				}
+				ImGui::EndChild();
+
+				ImGui::End();
+			}
+		}
+
+
+
 
 
 		ImGui::Render();
@@ -522,11 +570,11 @@ void copyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer buffer, VkImage i
 
 void Core::render_cpu(void)
 {
-	//static std::thread l([&] {
-	//	while (true) cpu_raytracing();
-	//});
+	static std::thread l([&] {
+		while (true) cpu_raytracing();
+	});
 
-	cpu_raytracing();
+	//cpu_raytracing();
 
 	command_buffer.begin();
 	{
@@ -611,48 +659,58 @@ struct pixel_s {
 	unsigned char a = 255;
 };
 
-static bool intersectTriangle(
-	Ray &ray,
-	const glm::vec3& v0,    // First vertex of the triangle
-	const glm::vec3& v1,    // Second vertex of the triangle
-	const glm::vec3& v2,    // Third vertex of the triangle
-	float& t,               // Distance to intersection point (output)
-	glm::vec3& intersectionPoint) // Intersection point (output)
-{
-	const float EPSILON = 1e-8;
-	glm::vec3 edge1 = v1 - v0;
-	glm::vec3 edge2 = v2 - v0;
-	glm::vec3 h = glm::cross(ray.dir, edge2);
-	float a = glm::dot(edge1, h);
+class Sphere {
+public:
+	Sphere(glm::vec3 _pos, float _radius) : pos(_pos), radius(_radius)
+	{
 
-	if (a > -EPSILON && a < EPSILON) {
-		return false; // Ray is parallel to the triangle
 	}
+	~Sphere(void) {};
 
-	float f = 1.0f / a;
-	glm::vec3 s = ray.orig - v0;
-	float u = f * glm::dot(s, h);
+	bool intersectRaySphere(const Ray& ray, hit_info& hitInfo) {
+		glm::vec3 oc = ray.orig - pos;
+		float a = glm::dot(ray.dir, ray.dir);
+		float b = 2.0f * glm::dot(oc, ray.dir);
+		float c = glm::dot(oc, oc) - radius * radius;
 
-	if (u < 0.0f || u > 1.0f) {
-		return false; // Intersection is outside the triangle
-	}
+		float discriminant = b * b - 4.0f * a * c;
 
-	glm::vec3 q = glm::cross(s, edge1);
-	float v = f * glm::dot(ray.dir, q);
+		if (discriminant < 0.0f) {
+			return false; // No intersection
+		}
 
-	if (v < 0.0f || u + v > 1.0f) {
-		return false; // Intersection is outside the triangle
-	}
+		float sqrtDiscriminant = glm::sqrt(discriminant);
 
-	t = f * glm::dot(edge2, q);
+		// Find the nearest t value for the intersection
+		float t1 = (-b - sqrtDiscriminant) / (2.0f * a);
+		float t2 = (-b + sqrtDiscriminant) / (2.0f * a);
 
-	if (t > EPSILON) { // Ray intersection
-		intersectionPoint = ray.orig + ray.dir * t;
+		float t = (t1 > 0) ? t1 : t2;
+		if (t < 0) {
+			return false; // Intersection is behind the ray origin
+		}
+
+		// Compute intersection point and normal
+		hitInfo.distance = t;
+		hitInfo.pos = ray.orig + t * ray.dir;
+		hitInfo.normal = glm::normalize(hitInfo.pos - pos);
+
 		return true;
 	}
-	else {
-		return false; // Intersection is behind the ray origin
-	}
+
+	glm::vec3 pos;
+	float radius;
+
+private:
+};
+
+#include <random>
+
+static float randomFloat() {
+	static std::random_device rd;
+	static std::mt19937 gen(rd());
+	std::uniform_real_distribution<float> dis(0.0f, 1.0f);
+	return dis(gen);
 }
 
 glm::vec3 Core::trace_ray(Ray r, int max_bounce)
@@ -661,12 +719,14 @@ glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 	glm::vec3 final_color{1.f, 1.f, 1.f};
 	bool nothing = true;
 	int direct_light = 0;
+	//static Sphere sphere({ 0.f, 0.f, 0.f }, 0.5f);
+
 	for (int i = 0; i <= max_bounce; i++) {
 		hit_info info;
+		hit_info tmp;
 		bool found = false;
 
 		for (auto& mesh : scene.meshes) {
-			hit_info tmp;
 			if (!mesh.hit(r, tmp)) continue;
 			found = true;
 			nothing = false;
@@ -675,20 +735,29 @@ glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 				info = tmp;
 		}
 
+		//if (sphere.intersectRaySphere(r, tmp)) {
+		//	found = true;
+		//	nothing = false;
+		//	tmp.material_index = 0;
+		//	if (tmp.distance < info.distance)
+		//		info = tmp;
+		//}
+
 		if (!found) break;
 
-		light.x += final_color.x * info.material.Ks.X * 3.f;;
-		light.y += final_color.y * info.material.Ks.Y * 3.f;;
-		light.z += final_color.z * info.material.Ks.Z * 3.f;;
+		bool is_specular_bounce = scene.materials[info.material_index].specular_probability > randomFloat();
 
-		final_color.x *= info.material.Kd.X;
-		final_color.y *= info.material.Kd.Y;
-		final_color.z *= info.material.Kd.Z;
+		light += final_color * scene.materials[info.material_index].emissive;
+		final_color *= (is_specular_bounce ? glm::vec3{1.f, 1.f, 1.f} : scene.materials[info.material_index].diffuse);
 
 		//final_color = info.normal;
 
-		r.orig = info.pos;
-		r.dir = Camera::generateRandomDirection(info.normal);
+		glm::vec3 diffuse_direction = Camera::generateRandomDirection(info.normal);
+		glm::vec3 specular_direction =  r.dir - 2.0f * glm::dot(r.dir, info.normal) * info.normal;
+		
+		r.orig = info.pos - r.dir * 0.0001f;;
+		r.dir = glm::mix(diffuse_direction, specular_direction, scene.materials[info.material_index].smooth * is_specular_bounce);
+		//r.dir = Camera::generateRandomDirection(info.normal);
 	}
 
 	if (nothing) return {};
@@ -700,9 +769,7 @@ glm::vec3 Core::trace_ray(Ray r, int max_bounce)
 
 void Core::cpu_raytracing(void)
 {
-	int num_rays = 200;
-	int max_bounce = 10;
-	float light_intensity = 40.f;
+	static bool done = false;
 
 	int width = (int)Vk::window.extent.width;
 	int height = (int)Vk::window.extent.height;
@@ -711,6 +778,8 @@ void Core::cpu_raytracing(void)
 
 	auto start_point = camera_raytracing.top_left + (camera_raytracing.du + camera_raytracing.dv) / 2.f;
 	static int num_frames = 0;
+
+	if (infinity == false && done) return;
 
 	BEGIN_LOOP(width, height);
 
@@ -739,5 +808,6 @@ void Core::cpu_raytracing(void)
 
 	END_LOOP;
 
+	done = true;
 	num_frames;
 }
