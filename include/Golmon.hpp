@@ -9,4 +9,5 @@
 #include "Objects/Sync.hpp"
 #include "Objects/Commands.hpp"
 #include "Objects/Descriptors.hpp"
+#include "Objects/RayTracingPipeline.hpp"
 #include "Model.hpp"

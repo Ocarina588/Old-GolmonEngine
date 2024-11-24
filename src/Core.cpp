@@ -101,7 +101,7 @@ void Gizmo::init(void)
 
 Core::Core(void)
 {
-	rendering_mode = true;;;
+	rendering_mode = false;;;
 
 	init_engine_resources();
 	init_app_resources();
@@ -124,9 +124,22 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(900, 900, "Vulkan App");
+	Vk::window.init(1000, 1000, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
+
+	Vk::device.as_feature.accelerationStructure = VK_TRUE;
+	Vk::device.raytracing_pipeline_feature.rayTracingPipeline = VK_TRUE;
+	Vk::device.device_address_feature.bufferDeviceAddress = VK_TRUE;
+	Vk::device.add_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, &Vk::device.raytracing_pipeline_feature);
+	Vk::device.add_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, &Vk::device.as_feature);
+	Vk::device.add_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, &Vk::device.device_address_feature);
+	Vk::device.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	Vk::device.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+	Vk::device.add_extension(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+
 	context.init(true);
+
+	vulkan::RayTracingPipeline::load_raytracing_functions();
 
 	finished_rendering.init();
 	image_acquired.init();
@@ -142,17 +155,17 @@ void Core::init_engine_resources(void)
 
 	offscreen_image.init(
 		context.window.extent,
-		Vk::window.format.format , VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-		VK_IMAGE_ASPECT_COLOR_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		Vk::window.format.format , 
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
+
+	//offscreen_image.barrier(command_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 	render_pass.use_depth(depth_image); 
 
-	//scene.load_obj("monkey.obj");
-	//scene.load_scene("corneil.obj");
-	//scene.load_obj("monkey.obj");
-	//scene.load_obj("models/CornellBox-Original.obj");
-
+	scene.load_scene("corneil.obj");
 }
 
 void Core::init_app_resources(void)
@@ -174,12 +187,6 @@ void Core::init_app_resources(void)
 	if (vkCreateFramebuffer(Vk::device.ptr, &create_info, nullptr, &offscreen_buffer) != VK_SUCCESS) throw std::runtime_error("failed to create framebuffer");
 
 	//BUFFERS
-	vertex_buffer.init(
-		(void*)vertices.data(),
-		static_cast<uint32_t>(sizeof(Vertex) * vertices.size()),
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
 
 	staging_buffer.init(
 		sizeof(uint32_t) * Vk::window.extent.width * Vk::window.extent.height,
@@ -191,8 +198,9 @@ void Core::init_app_resources(void)
 
 	ubo_buffer.init(
 		static_cast<uint32_t>(sizeof(UBO)),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 	);
 	ubo_buffer.map();
 	camera_raytracing.udpate_raytracing({0.f, 0.f, 4.f});
@@ -227,8 +235,9 @@ void Core::init_app_resources(void)
 	gizmo.pipeline.init();
 	gizmo.init();
 
+	//RAYTRACING
 
-
+	init_raytracing();
 }
 
 void Core::init_imgui(void)
@@ -355,7 +364,7 @@ int Core::main(int ac, char** av)
 		if (rendering_mode)
 			render_gpu();
 		else 
-			render_cpu();
+			render_raytracing();
 
 		command_buffer.submit(image_acquired, finished_rendering, inflight);
 		
@@ -375,6 +384,7 @@ void Core::update_dt(void)
 
 void Core::update_ubo(void)
 {
+	camera_info_s camera_info{};
 	UBO ubo{};
 	ubo.model = glm::mat4(1.f);// glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	//ubo.model = glm::rotate(ubo.model, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
@@ -394,6 +404,13 @@ void Core::update_ubo(void)
 	ubo.model = camera_raytracing.model;
 
 	camera_raytracing.ubo.memcpy(&ubo, sizeof(ubo));
+
+	camera_info.viewProj = ubo.view * ubo.proj;
+	camera_info.projInverse = glm::inverse(ubo.proj);
+	camera_info.viewInverse = glm::inverse(ubo.view);
+
+	rt_camera_buffer.memcpy(&camera_info, sizeof(camera_info_s));
+
 }
 
 std::string ask_file(char const* filter)
@@ -427,6 +444,132 @@ std::wstring StringToWString(const std::string& str) {
 	return wstr;
 }
 
+void Core::start_render(void)
+{
+	//command_buffer.begin(true);
+	//{
+	//	
+
+	//	vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
+	//		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+	//		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
+	//	);
+
+	//	vulkan::Image::cpy(command_buffer, Vk::window.extent, offscreen_image.image, Vk::window.images[Vk::window.image_index], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	//	vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
+	//		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+	//		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
+	//	);
+	//}
+	//command_buffer.end();
+}
+
+void Core::render_raytracing(void)
+{
+	command_buffer.begin(true);
+	{
+		offscreen_image.barrier(command_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+
+		vkCmdBindPipeline(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.ptr);
+		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.layout, 0, 1, &rt_pool.get_set(0, 0), 0, nullptr);
+		
+		vulkan::RayTracingPipeline::vkCmdTraceRaysKHR(command_buffer.ptr, &sbt.gen_region, &sbt.miss_region, &sbt.hit_region, &sbt.call_region, Vk::window.extent.width, Vk::window.extent.height, 1);
+
+		render_pass.begin(command_buffer, Vk::window.extent, offscreen_buffer);
+		render_imgui();
+		render_pass.end(command_buffer);
+
+		vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
+		);
+
+		vulkan::Image::cpy(command_buffer, Vk::window.extent, offscreen_image.image, Vk::window.images[Vk::window.image_index], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
+		);
+
+	}
+	command_buffer.end();
+}
+
+void Core::render_imgui(void)
+{
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	//ImGui::ShowDemoWindow();
+
+
+	if (ImGui::BeginMainMenuBar()) {
+
+
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Open file")) file_to_load = ask_file("").c_str();
+			ImGui::EndMenu();
+		}
+
+		//ImGui::ShowDemoWindow();
+
+		//if (ImGui::BeginMenu("Project")) {
+		//	if (ImGui::MenuItem("Terrain")) {
+		//		terrain = std::make_shared<engine::Terrain>(std::make_shared<engine::Perlin>(std::time(NULL)));
+		//		mode = true;
+		//	}
+		//	if (ImGui::MenuItem("Rubik's Cube"))
+		//		mode = false;
+		//	ImGui::EndMenu();
+
+		//}
+
+		if (ImGui::BeginMenu("Camera")) {
+			if (ImGui::MenuItem("Scene"));
+			if (ImGui::MenuItem("Player"));
+			ImGui::EndMenu();
+		}
+
+
+		ImGui::EndMainMenuBar();
+	}
+
+	static int selected = 0;
+
+	if (scene.meshes.empty() == false) {
+		if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
+			ImGui::InputInt("num rays", &num_rays);
+			ImGui::InputInt("max bounce", &max_bounce);
+			ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
+			ImGui::InputInt("infinity", &infinity);
+
+			ImGui::InputFloat3("Diffuse", (float*)&materials[selected].diffuse);
+			ImGui::InputFloat3("Specular", (float*)&materials[selected].specular);
+			ImGui::InputFloat3("Emissive", (float*)&materials[selected].emissive);
+			ImGui::SliderFloat("Smooth", &scene.materials[selected].smooth, 0.f, 1.f);
+			ImGui::SliderFloat("Specular Probability", &scene.materials[selected].specular_probability, 0.f, 1.f);
+			ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+			for (int i = 0; i < scene.materials.size(); i++)
+			{
+				// FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
+				char label[128];
+				sprintf_s(label, "Material: %s", scene.materials[i].name.c_str());
+				if (ImGui::Selectable(label, selected == i))
+					selected = i;
+			}
+			ImGui::EndChild();
+
+			ImGui::End();
+		}
+		materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
+
+	}
+
+	ImGui::Render();
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.ptr);
+}
 void Core::render_gpu(void)
 {
 	static std::string file_to_load = "";
@@ -460,79 +603,7 @@ void Core::render_gpu(void)
 		//vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_GRAPHICS, gizmo.pipeline.layout, 0, 1, &descriptors.get_set(0, 1), 0, nullptr);
 		//camera_raytracing.draw(command_buffer);
 
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		//ImGui::ShowDemoWindow();
-
-
-		if (ImGui::BeginMainMenuBar()) {
-
-
-			if (ImGui::BeginMenu("File")) {
-				if (ImGui::MenuItem("Open file")) file_to_load = ask_file("").c_str();
-				ImGui::EndMenu();
-			}
-
-			//ImGui::ShowDemoWindow();
-
-			//if (ImGui::BeginMenu("Project")) {
-			//	if (ImGui::MenuItem("Terrain")) {
-			//		terrain = std::make_shared<engine::Terrain>(std::make_shared<engine::Perlin>(std::time(NULL)));
-			//		mode = true;
-			//	}
-			//	if (ImGui::MenuItem("Rubik's Cube"))
-			//		mode = false;
-			//	ImGui::EndMenu();
-
-			//}
-
-			if (ImGui::BeginMenu("Camera")) {
-				if (ImGui::MenuItem("Scene"));
-				if (ImGui::MenuItem("Player"));
-				ImGui::EndMenu();
-			}
-
-
-			ImGui::EndMainMenuBar();
-		}
-
-		static int selected = 0;
-
-		if (scene.meshes.empty() == false) {
-			if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
-				ImGui::InputInt("num rays", &num_rays);
-				ImGui::InputInt("max bounce", &max_bounce);
-				ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
-				ImGui::InputInt("infinity", &infinity);
-
-				ImGui::InputFloat3("Diffuse", (float*)&scene.materials[selected].diffuse);
-				ImGui::InputFloat3("Specular", (float*)&scene.materials[selected].specular);
-				ImGui::InputFloat3("Emissive", (float*)&scene.materials[selected].emissive);
-				ImGui::SliderFloat("Smooth", &scene.materials[selected].smooth, 0.f, 1.f);
-				ImGui::SliderFloat("Specular Probability", &scene.materials[selected].specular_probability, 0.f, 1.f);
-				ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
-				for (int i = 0; i < scene.materials.size(); i++)
-				{
-					// FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
-					char label[128];
-					sprintf_s(label, "Material: %s", scene.materials[i].name.c_str());
-					if (ImGui::Selectable(label, selected == i))
-						selected = i;
-				}
-				ImGui::EndChild();
-
-				ImGui::End();
-			}
-		}
-
-
-
-
-
-		ImGui::Render();
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer.ptr);
+		render_imgui();
 
 		render_pass.end(command_buffer);
 
@@ -810,4 +881,94 @@ void Core::cpu_raytracing(void)
 
 	done = true;
 	num_frames;
+}
+
+void Core::init_raytracing(void)
+{
+	//UNIFORMS INFO
+	rt_camera_buffer.init(
+		static_cast<uint32_t>(sizeof(camera_info_s)),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
+	);
+	rt_camera_buffer.map();
+
+	instances_info.init(
+		static_cast<uint32_t>(sizeof(instance_info_s) * scene.meshes.size()),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
+	);
+	instances_info.map();
+
+	materials_buffer.init(
+		static_cast<uint32_t>(sizeof(material_info_s) * scene.materials.size()),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
+	);
+	materials_buffer.map();
+
+
+	std::vector<instance_info_s> addresses;
+	for (auto& i : scene.meshes)
+		addresses.emplace_back( i.buffer.address, (uint64_t)i.material_index );
+
+	instances_info.memcpy(addresses.data(), sizeof(instance_info_s) * addresses.size());
+
+	for (auto& i : scene.materials)
+		materials.push_back({ {i.diffuse.x, i.diffuse.y, i.diffuse.z, 0}, {}, {} });
+	materials[5].emissive = { 1.f, 1.f, 1.f, 1.f };
+	materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
+
+	//CREATING ACCELERATION SCTRUCTURES
+
+	blases.resize(scene.meshes.size());
+	for (int i = 0; i < scene.meshes.size(); i++) {
+		blases[i].init({ &scene.meshes[i].buffer });
+		blases[i].build(command_buffer);
+	}
+
+	tlas.init(blases);
+	tlas.build(command_buffer);
+
+	//CREATING DESCRIPTOR SET
+	rt_pool.add_set(1)
+		.add_binding(0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // tlas
+		.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // offscreen image
+		.add_binding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // camera
+		.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // array of instance info
+		.add_binding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR); // array of material info
+	rt_pool.init();
+
+	rt_pool.add_write(0, 0, 0, tlas.ptr);
+	rt_pool.add_write(0, 0, 1, offscreen_image.view);
+	rt_pool.add_write(0, 0, 2, rt_camera_buffer.ptr);
+	rt_pool.add_write(0, 0, 3, instances_info.ptr);
+	rt_pool.add_write(0, 0, 4, materials_buffer.ptr);
+	rt_pool.write();
+
+	for (auto& layout : rt_pool.layouts)
+		rt_pipeline.add_layout(layout);
+
+	//CREATING RAYTRACING PIPELINE
+
+	vulkan::Shader gen("shaders/raygen.spv", VK_SHADER_STAGE_RAYGEN_BIT_KHR);
+	vulkan::Shader miss("shaders/raymiss.spv", VK_SHADER_STAGE_MISS_BIT_KHR);
+	vulkan::Shader hit("shaders/raychit.spv", VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR);
+
+	rt_pipeline.add_shader_stage(gen.stage);
+	rt_pipeline.add_shader_stage(miss.stage);
+	rt_pipeline.add_shader_stage(hit.stage);
+
+	rt_pipeline.add_shader_group(vulkan::ShaderGroup().type_general().generalShader(0));
+	rt_pipeline.add_shader_group(vulkan::ShaderGroup().type_general().generalShader(1));
+	rt_pipeline.add_shader_group(vulkan::ShaderGroup().type_triangle().closestHitShader(2));
+	
+	rt_pipeline.init();
+
+	//SHADER BINDING TABLE
+
+	sbt.init(rt_pipeline.ptr, 1, 1);
 }

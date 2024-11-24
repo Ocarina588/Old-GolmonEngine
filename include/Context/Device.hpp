@@ -13,7 +13,7 @@ namespace vulkan {
 		~Device(void);
 
 
-		inline void add_extension(char const* str) { extensions.push_back(str); }
+		inline void add_extension(char const* str, void* vk_struct = nullptr) { extensions.push_back(str); if (vk_struct) vk_structs.push_back(vk_struct); }
 		inline void set_gpu(uint32_t index) { gpu_index = index; }
 
 		VkDevice ptr = nullptr;
@@ -37,6 +37,12 @@ namespace vulkan {
 		static VkMemoryRequirements get_memory_requirements(VkBuffer buffer);
 		static uint32_t find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
+		VkPhysicalDeviceBufferDeviceAddressFeatures device_address_feature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR as_feature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR raytracing_pipeline_feature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProps = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+		VkPhysicalDeviceProperties2 properties_2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+
 	private:
 
 		void init(VkInstance instance, VkSurfaceKHR surface);
@@ -44,6 +50,7 @@ namespace vulkan {
 		void get_queues(VkSurfaceKHR surface);
 
 		std::vector<char const*> extensions;
+		std::vector<void *> vk_structs;
 		uint32_t gpu_index = 0;
 	};
 }

@@ -59,11 +59,29 @@ void Instance::init(void)
 	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	app_info.pEngineName = "GolmonEngine";
 
+	VkValidationFeatureEnableEXT enabledFeatures[] = {
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT, // Example feature,
+		VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT
+	};
+
+	VkValidationFeaturesEXT validationFeatures{ VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+	validationFeatures.enabledValidationFeatureCount = 6;
+	validationFeatures.pEnabledValidationFeatures = enabledFeatures;
+	validationFeatures.disabledValidationFeatureCount = 0;
+	validationFeatures.pDisabledValidationFeatures = nullptr;
+
+	add_extension(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+
 	create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	create_info.ppEnabledExtensionNames = extensions.data();
 	create_info.enabledLayerCount = static_cast<uint32_t>(layers.size());
 	create_info.ppEnabledLayerNames = layers.data();
 	create_info.pApplicationInfo = &app_info;
+	create_info.pNext = &validationFeatures;
 
 	if (debug)
 		create_info.pNext = &messenger_create_info;

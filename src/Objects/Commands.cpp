@@ -61,3 +61,17 @@ void CommandBuffer::submit(Semaphore &wait, Semaphore &signal, Fence &inflight)
 
 	if (vkQueueSubmit(Context::device.queue.graphics, 1, &submit_info, inflight.ptr) != VK_SUCCESS) throw std::runtime_error("failed to submit");
 }
+
+void CommandBuffer::submit_p(Semaphore* wait, Semaphore* signal, Fence* inflight)
+{
+
+	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &ptr;
+
+	auto res = vkQueueSubmit(Context::device.queue.graphics, 1, &submit_info, inflight->ptr);
+	if (res != VK_SUCCESS) {
+		std::cout << res << std::endl;
+		throw std::runtime_error("failed to submit");
+	}
+}

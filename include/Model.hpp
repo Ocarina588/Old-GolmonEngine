@@ -16,8 +16,8 @@
 
 
 struct Vertex {
-	glm::vec3 pos;
-	glm::vec3 normal;
+	alignas(16) glm::vec3 pos;
+	alignas(16) glm::vec3 normal;
 	//glm::vec2 text_coord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {

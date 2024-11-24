@@ -10,9 +10,9 @@ namespace vulkan{
 		Buffer(void) {};
 		~Buffer(void);
 
-		void init(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-		inline void init(void* p, uint32_t _size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties) {
-			init(_size, usage, properties);
+		void init(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags flag = 0);
+		inline void init(void* p, uint32_t _size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags flag = 0) {
+			init(_size, usage, properties, flag);
 			map();
 			memcpy(p, _size);
 			unmap();
@@ -26,8 +26,9 @@ namespace vulkan{
 
 		VkBuffer ptr = nullptr;
 		VkDeviceMemory memory = nullptr;
-		VkDeviceAddress adress = 0;
+		VkDeviceAddress address = 0;
 		VkDeviceSize size = 0;
+		VkDeviceSize original_size = 0;
 	private:
 	};
 

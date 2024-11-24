@@ -179,6 +179,7 @@
     <ClCompile Include="src\Objects\Descriptors.cpp" />
     <ClCompile Include="src\Objects\GraphicsPipeline.cpp" />
     <ClCompile Include="src\Objects\Image.cpp" />
+    <ClCompile Include="src\Objects\RayTracingPipeline.cpp" />
     <ClCompile Include="src\Objects\Shader.cpp" />
     <ClCompile Include="src\Objects\Sync.cpp" />
     <ClCompile Include="src\utils.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="include\Objects\Descriptors.hpp" />
     <ClInclude Include="include\Objects\GraphicsPipeline.hpp" />
     <ClInclude Include="include\Objects\Image.hpp" />
+    <ClInclude Include="include\Objects\RayTracingPipeline.hpp" />
     <ClInclude Include="include\Objects\Shader.hpp" />
     <ClInclude Include="include\Objects\Sync.hpp" />
     <ClInclude Include="include\objloader.hpp" />

@@ -35,10 +35,31 @@ void Device::init(VkInstance instance, VkSurfaceKHR surface)
 	VkPhysicalDeviceFeatures features{};
 	features.fillModeNonSolid = true;
 	features.wideLines = true;
+	features.shaderInt64 = true;
+
+	VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {};
+	scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
+	scalarBlockLayoutFeatures.scalarBlockLayout = VK_TRUE;
+
+	VkPhysicalDeviceFeatures2 deviceFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	deviceFeatures.pNext = &scalarBlockLayoutFeatures;
+	deviceFeatures.features = features;
+
+	properties_2.pNext = &rtProps;
+	vkGetPhysicalDeviceProperties2(vulkan::Context::device.physical_ptr, &properties_2);
+
+	for (int i = 1; i < vk_structs.size(); i++)
+		static_cast<VkBaseOutStructure*>(vk_structs[i])->pNext = static_cast<VkBaseOutStructure*>(vk_structs[i - 1]);
+
+	if (vk_structs.empty() == false)
+		create_info.pNext = *vk_structs.rbegin();
+
+	deviceFeatures.pNext = *vk_structs.rbegin();
 
 	create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 	create_info.ppEnabledExtensionNames = extensions.data();
-	create_info.pEnabledFeatures = &features;
+	//create_info.pEnabledFeatures = &features;
+	create_info.pNext = &deviceFeatures;
 	create_info.pQueueCreateInfos = &queue_create_info;
 	create_info.queueCreateInfoCount = 1;
 	

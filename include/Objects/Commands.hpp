@@ -25,7 +25,8 @@ namespace vulkan {
 		void init(CommandPool&);
 		void begin(bool _reset = true);
 		void end(void);
-		void submit(Semaphore &wait, Semaphore &signal, Fence &inflight);
+		void submit(Semaphore& wait, Semaphore& signal, Fence& inflight);
+		void submit_p(Semaphore *wait, Semaphore *signal, Fence *inflight);
 		inline void reset(void) { vkResetCommandBuffer(ptr, 0); }
 
 

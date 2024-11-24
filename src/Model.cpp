@@ -15,8 +15,9 @@ void Mesh::init(void* data, size_t size)
 {
 	buffer.init(
 		data, static_cast<uint32_t>(size),
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 	);
 }
 
@@ -180,10 +181,11 @@ void Scene::load_scene(std::string const& file_name)
 	if (!scene)
 		throw std::runtime_error(importer.GetErrorString());
 
+	//std::cout << "Loading Scene:" << std::endl;
+	//std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 	meshes.resize(scene->mNumMeshes);
 	buffers.resize(scene->mNumMeshes);
 	materials.resize(scene->mNumMaterials);
-	std::cout << scene->mNumMaterials << std::endl;
 
 	for (int i = 0; i < scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
@@ -193,11 +195,12 @@ void Scene::load_scene(std::string const& file_name)
 			for (int k = 0; k < 3; k++) {
 				int index = mesh->mFaces[j].mIndices[k];
 				meshes[i].vertices.push_back({
-						{(float)mesh->mVertices[index].x, (float)mesh->mVertices[index].y, (float)mesh->mVertices[index].z},
-						{(float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z}
+						.pos = {(float)mesh->mVertices[index].x, (float)mesh->mVertices[index].y, (float)mesh->mVertices[index].z},
+						//{1.f, 1.f, 0.f}
+						.normal = {(float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z}
 						//{(float)mesh->mTextureCoords[j]->x, (float)mesh->mTextureCoords[j]->y}
 						//{0.f, 0.f}
-					});
+					});;
 			}
 		}
 
@@ -212,9 +215,9 @@ void Scene::load_scene(std::string const& file_name)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
 
 		meshes[i].material_index = mesh->mMaterialIndex;
-		std::cout << i << " " << mesh->mMaterialIndex << std::endl;
 		materials[mesh->mMaterialIndex].name = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();
 	}
+	//std::cout << "vertices: " << meshes[0].vertices.size() << std::endl;
 
 
 }

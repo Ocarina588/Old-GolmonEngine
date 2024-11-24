@@ -9,6 +9,7 @@
 #include "Model.hpp"
 #include <array>
 #include "Camera.hpp"
+#include "../shaders/host_device.h"
 
 class Gizmo {
 public:
@@ -47,8 +48,11 @@ public:
 	void init_app_resources(void);
 	void present_image(void);
 
+	void start_render(void);
 	void render_gpu(void);
+	void render_raytracing(void);
 	void render_cpu(void);
+	void render_imgui(void);
 	void cpu_raytracing(void);
 	glm::vec3 trace_ray(Ray r, int max_bounce);
 
@@ -57,6 +61,7 @@ public:
 	void update_ubo(void);
 
 	void init_imgui(void);
+	void init_raytracing(void);
 	void create_gizmo(void);
 
 	vulkan::Context context;
@@ -75,7 +80,7 @@ public:
 
 	std::wstring file_loaded = L"";
 	std::string file_loaded_n = "";
-	bool rendering_mode = true;
+	bool rendering_mode = false;
 
 	float dt = 0;
 	bool clicked = false;
@@ -87,4 +92,21 @@ public:
 	int infinity = true;
 	Scene scene;
 	Gizmo gizmo;
+
+	//RAYTRACING
+
+	std::vector<vulkan::BLAS> blases;
+	vulkan::TLAS tlas;
+
+	vulkan::DescriptorPool rt_pool;
+
+	vulkan::RayTracingPipeline rt_pipeline;
+	vulkan::ShaderBindingTable sbt;
+
+	camera_info_s rt_camera;
+	vulkan::Buffer rt_camera_buffer;
+	vulkan::Buffer instances_info;
+
+	std::vector<material_info_s> materials;
+	vulkan::Buffer materials_buffer;
 };

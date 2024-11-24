@@ -10,7 +10,7 @@ namespace vulkan {
 
 		void init(void);
 		inline DescriptorPool& add_set(uint32_t size) { bindings.push_back({}); sizes.push_back(size); return *this; }
-		inline DescriptorPool& add_binding(uint32_t binding, VkDescriptorType type, VkShaderStageFlagBits stage, uint32_t count = 1) {
+		inline DescriptorPool& add_binding(uint32_t binding, VkDescriptorType type, VkShaderStageFlags stage, uint32_t count = 1) {
 			bindings.rbegin()->emplace_back(binding, type, count, stage, nullptr);
 			return *this;
 		}
@@ -21,6 +21,9 @@ namespace vulkan {
 			return sets[offset + index];
 		}
 		void add_write(uint32_t set, uint32_t index, uint32_t binding_index, VkBuffer buffer);
+		void add_write(uint32_t set, uint32_t index, uint32_t binding_index, VkImageView view);
+		void add_write(uint32_t set, uint32_t index, uint32_t binding_index, VkAccelerationStructureKHR &as);
+
 
 		void write(void);
 
@@ -28,10 +31,13 @@ namespace vulkan {
 		std::vector<VkDescriptorSetLayout> layouts;
 		std::vector<VkDescriptorSet> sets;
 		std::vector<VkWriteDescriptorSet> writes;
-	private:
+
+		VkBaseOutStructure* test;
 		VkDescriptorPool ptr = nullptr;
 
 		std::vector<VkDescriptorBufferInfo> buffers_info;
+		std::vector<VkDescriptorImageInfo> images_info;
+		std::vector<VkWriteDescriptorSetAccelerationStructureKHR> tlases_info;
 		std::vector<std::vector<VkDescriptorSetLayoutBinding>> bindings;
 	};
 

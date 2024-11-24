@@ -20,7 +20,7 @@ void RenderPass::init(void)
 
 	color_attachment.format = Context::window.format.format;
 	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // VK_ATTACHMENT_LOAD_OP_CLEAR;
 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -29,7 +29,7 @@ void RenderPass::init(void)
 	if (depth_image) {
 		depth_attachment.format = depth_image->format;
 		depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-		depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;// VK_ATTACHMENT_LOAD_OP_CLEAR;
 		depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -67,8 +67,8 @@ void RenderPass::begin(CommandBuffer &buffer, VkExtent2D extent, VkFramebuffer f
 	VkClearValue clear_values[] = { clearColor, clear_depth };
 
 	VkRenderPassBeginInfo begin_info{ VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO };
-	begin_info.clearValueCount = 1 + (depth_image != nullptr);
-	begin_info.pClearValues = clear_values;
+	begin_info.clearValueCount = 0;// 1 + (depth_image != nullptr);
+	begin_info.pClearValues = nullptr;// clear_values;
 	begin_info.framebuffer = frame_buffer;
 	begin_info.renderArea.offset = {};
 	begin_info.renderArea.extent = extent;

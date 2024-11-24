@@ -30,7 +30,6 @@ void Context::init(bool debug)
 	}
 
 	instance.init();
-	std::cout << instance.ptr << std::endl;
 
 	if (window.created)
 		window.init_surface();
