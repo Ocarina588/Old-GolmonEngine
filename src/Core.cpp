@@ -170,7 +170,7 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_scene("eyes.obj");
+	scene.load_scene("lol.obj");
 	std::cout << "loaded" << std::endl;
 }
 
