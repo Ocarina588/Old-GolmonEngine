@@ -176,20 +176,23 @@ void Scene::load_scene(std::string const& file_name)
 	buffers.clear();
 	offsets.clear();
 
+	
 	Assimp::Importer importer;
+	std::cout << "going to load" << std::endl;
+	importer.SetPropertyInteger("AI_CONFIG_IMPORT_NO_TEXTURES", 1);
 	aiScene const * scene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs);
 	if (!scene)
 		throw std::runtime_error(importer.GetErrorString());
 
-	//std::cout << "Loading Scene:" << std::endl;
-	//std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+	std::cout << "Loading Scene:" << std::endl;
+	std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
 	meshes.resize(scene->mNumMeshes);
 	buffers.resize(scene->mNumMeshes);
 	materials.resize(scene->mNumMaterials);
 
 	for (int i = 0; i < scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
-		
+		std::cout << "loading mesh " << i << " over " << scene->mNumMeshes << std::endl;
 		for (int j = 0; j < mesh->mNumFaces; j++) {
 
 			for (int k = 0; k < 3; k++) {
@@ -213,6 +216,7 @@ void Scene::load_scene(std::string const& file_name)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
 		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_EMISSIVE, *(aiColor3D*)&materials[mesh->mMaterialIndex].emissive) != AI_SUCCESS)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
+
 
 		meshes[i].material_index = mesh->mMaterialIndex;
 		materials[mesh->mMaterialIndex].name = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();

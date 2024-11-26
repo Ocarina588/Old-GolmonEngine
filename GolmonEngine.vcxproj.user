@@ -7,10 +7,12 @@
     <LocalDebuggerEnvironment>PATH=%PATH%;$(SolutionDir)libraries/assimp/bin/debug
 $(LocalDebuggerEnvironment)</LocalDebuggerEnvironment>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>$(SolutionDir)/shaders/compile_shaders.bat</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerEnvironment>PATH=%PATH%;$(SolutionDir)libraries/assimp/bin/release
 $(LocalDebuggerEnvironment)</LocalDebuggerEnvironment>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommandArguments>$(SolutionDir)/shaders/compile_shaders.bat</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>

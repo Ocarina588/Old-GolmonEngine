@@ -174,9 +174,11 @@
 //}
 
 #include "Core.hpp"
+#include <cstdlib>
 
 int main(int ac, char** av)
 {
+	system("shaders\\compile_shaders.bat");
 	try {
 		Core core;
 		return core.main(ac, av);

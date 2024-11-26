@@ -17,9 +17,11 @@ using uint = unsigned int;
 #ifdef __cplusplus
  #define START_BINDING(a) enum a {
  #define END_BINDING() }
+ #define Alignas(x) alignas(x) 
 #else
  #define START_BINDING(a)  const uint
  #define END_BINDING() 
+ #define Alignas(x)
 #endif
 
 START_BINDING(RtxBindings)
@@ -41,6 +43,7 @@ struct material_info_s
 	vec4 diffuse;
 	vec4 specular;
 	vec4 emissive;
+	vec4 smoooth;
 };
 
 struct camera_info_s
@@ -48,15 +51,23 @@ struct camera_info_s
 	mat4 viewProj;     // Camera view * projection
 	mat4 viewInverse;  // Camera inverse view matrix
 	mat4 projInverse;  // Camera inverse projection matrix
+	
+	vec4 color;
+	vec4 num_rays;
+	vec4 max_bounce;
+	vec4 frames;
+
+	//Alignas(16) int frames;
+	//Alignas(16) int max_bounce;
+	//Alignas(16) int num_rays;
 };
 
-struct hit_info_s
+struct hitPayload
 {
-	vec3 color;
-	vec3 light;
-	int recursive_step;
-	vec3 pos;
-	vec3 direction;
+	material_info_s material;
+	vec3 rayOrigin;
+	vec3 rayDir;
+	uint seed;
 };
 
 #endif

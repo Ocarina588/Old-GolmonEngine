@@ -1,9 +1,15 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-layout(location = 0) rayPayloadInEXT vec3 hitValue;
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
+
+#include "host_device.h"
+
+layout(location = 0) rayPayloadInEXT hitPayload prd;
 
 void main()
 {
-    hitValue = vec3(0.0, 0.1, 0.3);
+    prd.material.emissive = vec4(0);
+    prd.material.diffuse = vec4(0);
 }

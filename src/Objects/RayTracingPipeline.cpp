@@ -54,7 +54,7 @@ void AS::init_as(VkAccelerationStructureTypeKHR type)
 
 	VkAccelerationStructureCreateInfoKHR create_info{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR };
 	create_info.buffer = as_buffer.ptr;
-	create_info.size = as_buffer.size;
+	create_info.size = as_buffer.original_size;
 	create_info.type = type;
 
 	if (RayTracingPipeline::vkCreateAccelerationStructureKHR(Context::device.ptr, &create_info, nullptr, &ptr) != VK_SUCCESS)
@@ -313,7 +313,7 @@ void RayTracingPipeline::init(void)
 		.pStages = stages.data(),
 		.groupCount = static_cast<uint32_t>(groups.size()),
 		.pGroups = groups.data(), //rayTracingShaderGroupCreateInfoList.data(),
-		.maxPipelineRayRecursionDepth = 1,
+		.maxPipelineRayRecursionDepth = 10,
 		.pLibraryInfo = NULL,
 		.pLibraryInterface = NULL,
 		.pDynamicState = NULL,

@@ -84,11 +84,13 @@
     <IncludePath>$(SolutionDir)imgui;$(SolutionDir)libraries/glm/include;$(SolutionDir)libraries/vulkan/include;$(SolutionDir)libraries/GLFW/include;$(SolutionDir)libraries/assimp/include;$(IncludePath)</IncludePath>
     <ExternalIncludePath>$(SolutionDir)include;$(ExternalIncludePath)</ExternalIncludePath>
     <LibraryPath>$(SolutionDir)libraries/assimp/bin/debug;$(SolutionDir)libraries/vulkan/bin;$(SolutionDir)libraries/GLFW/bin;$(LibraryPath)</LibraryPath>
+    <CustomBuildBeforeTargets />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <IncludePath>$(SolutionDir)imgui;$(SolutionDir)libraries/glm/include;$(SolutionDir)libraries/vulkan/include;$(SolutionDir)libraries/GLFW/include;$(SolutionDir)libraries/assimp/include;$(IncludePath)</IncludePath>
     <ExternalIncludePath>$(SolutionDir)include;$(ExternalIncludePath)</ExternalIncludePath>
     <LibraryPath>$(SolutionDir)libraries/assimp/bin/release;$(SolutionDir)libraries/vulkan/bin;$(SolutionDir)libraries/GLFW/bin;$(LibraryPath)</LibraryPath>
+    <CustomBuildBeforeTargets />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -138,6 +140,14 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -157,6 +167,14 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PreBuildEvent>
+      <Command>
+      </Command>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="imgui\imgui.cpp" />

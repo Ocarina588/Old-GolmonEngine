@@ -84,7 +84,7 @@ public:
 
 	float dt = 0;
 	bool clicked = false;
-	Camera camera{ {0.0f, 0.0f, 4.f}, {} };
+	Camera camera{ {0.f, 3.0f, 4.f}, {0.f, 1.5f, 0.f} };
 	Camera camera_raytracing{ {0.f, 0.f, 3.5f}, {} };
 	int num_rays = 1 , max_bounce = 1;
 	std::string file_to_load;

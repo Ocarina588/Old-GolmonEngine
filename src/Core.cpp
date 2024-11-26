@@ -124,7 +124,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(1000, 1000, "Vulkan App");
+	Vk::window.init(3000, 2000, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	Vk::device.as_feature.accelerationStructure = VK_TRUE;
@@ -136,8 +136,13 @@ void Core::init_engine_resources(void)
 	Vk::device.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
 	Vk::device.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	Vk::device.add_extension(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+	
+	Vk::device.set_gpu(1);
 
 	context.init(true);
+
+	std::cout << Vk::device.properties_2.properties.deviceName << std::endl;
+	std::cout << "maximum recursion: " << Vk::device.rtProps.maxRayRecursionDepth << std::endl;
 
 	vulkan::RayTracingPipeline::load_raytracing_functions();
 
@@ -165,13 +170,14 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_scene("corneil.obj");
+	scene.load_scene("eyes.obj");
+	std::cout << "loaded" << std::endl;
 }
 
 void Core::init_app_resources(void)
 {
 	//RENDER PASS
-	render_pass.set_final_layout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+	render_pass.set_final_layout(VK_IMAGE_LAYOUT_GENERAL);
 	render_pass.init();
 	Vk::window.init_framebuffers(render_pass);
 
@@ -362,7 +368,7 @@ int Core::main(int ac, char** av)
 		update_ubo();
 
 		if (rendering_mode)
-			render_gpu();
+			render_cpu();
 		else 
 			render_raytracing();
 
@@ -384,14 +390,13 @@ void Core::update_dt(void)
 
 void Core::update_ubo(void)
 {
-	camera_info_s camera_info{};
 	UBO ubo{};
 	ubo.model = glm::mat4(1.f);// glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	//ubo.model = glm::rotate(ubo.model, glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 	//ubo.model = glm::rotate(ubo.model, dt * glm::radians(90.f), glm::vec3(0.f, 1.f, 0.f));
 
 
-	ubo.view = camera.view;
+	ubo.view = camera.view;;;
 	//ubo.view = glm::lookAt(glm::vec3(0.0f, -5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	ubo.proj = glm::perspective(glm::radians(45.0f), Vk::window.extent.width / (float)Vk::window.extent.height, 0.1f, 100.0f);
@@ -405,11 +410,11 @@ void Core::update_ubo(void)
 
 	camera_raytracing.ubo.memcpy(&ubo, sizeof(ubo));
 
-	camera_info.viewProj = ubo.view * ubo.proj;
-	camera_info.projInverse = glm::inverse(ubo.proj);
-	camera_info.viewInverse = glm::inverse(ubo.view);
+	rt_camera.viewProj = ubo.view * ubo.proj;
+	rt_camera.projInverse = glm::inverse(ubo.proj);
+	rt_camera.viewInverse = glm::inverse(ubo.view);
 
-	rt_camera_buffer.memcpy(&camera_info, sizeof(camera_info_s));
+	rt_camera_buffer.memcpy(&rt_camera, sizeof(camera_info_s));
 
 }
 
@@ -469,7 +474,6 @@ void Core::render_raytracing(void)
 {
 	command_buffer.begin(true);
 	{
-		offscreen_image.barrier(command_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
 		vkCmdBindPipeline(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.ptr);
 		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.layout, 0, 1, &rt_pool.get_set(0, 0), 0, nullptr);
@@ -485,7 +489,7 @@ void Core::render_raytracing(void)
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
 		);
 
-		vulkan::Image::cpy(command_buffer, Vk::window.extent, offscreen_image.image, Vk::window.images[Vk::window.image_index], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		vulkan::Image::cpy(command_buffer, Vk::window.extent, offscreen_image.image, Vk::window.images[Vk::window.image_index], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
 		vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -494,6 +498,7 @@ void Core::render_raytracing(void)
 
 	}
 	command_buffer.end();
+	rt_camera.frames.x++;
 }
 
 void Core::render_imgui(void)
@@ -539,17 +544,26 @@ void Core::render_imgui(void)
 	static int selected = 0;
 
 	if (scene.meshes.empty() == false) {
+		int num_rays = rt_camera.num_rays.x;
+		int max_bounce = rt_camera.max_bounce.x;
+		glm::vec4 color = rt_camera.color;
+
 		if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
-			ImGui::InputInt("num rays", &num_rays);
-			ImGui::InputInt("max bounce", &max_bounce);
+			ImGui::InputInt("num rays", (int *)&num_rays);
+			ImGui::InputInt("max bounce", (int *)&max_bounce);
 			ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
+			ImGui::InputFloat3("test color", (float*)&rt_camera.color);
 			ImGui::InputInt("infinity", &infinity);
+
+			rt_camera.num_rays.x = num_rays;
+			rt_camera.max_bounce.x = max_bounce;
+			rt_camera.frames.y = light_intensity;
 
 			ImGui::InputFloat3("Diffuse", (float*)&materials[selected].diffuse);
 			ImGui::InputFloat3("Specular", (float*)&materials[selected].specular);
 			ImGui::InputFloat3("Emissive", (float*)&materials[selected].emissive);
-			ImGui::SliderFloat("Smooth", &scene.materials[selected].smooth, 0.f, 1.f);
-			ImGui::SliderFloat("Specular Probability", &scene.materials[selected].specular_probability, 0.f, 1.f);
+			ImGui::SliderFloat("Smooth", &materials[selected].smoooth.x, 0.f, 1.f);
+			ImGui::SliderFloat("Specular Probability", &materials[selected].smoooth.y, 0.f, 1.f);
 			ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 			for (int i = 0; i < scene.materials.size(); i++)
 			{
@@ -851,18 +865,17 @@ void Core::cpu_raytracing(void)
 	static int num_frames = 0;
 
 	if (infinity == false && done) return;
-
 	BEGIN_LOOP(width, height);
 
 		Ray new_ray(camera_raytracing.pos, start_point + camera_raytracing.du * (float)x + camera_raytracing.dv * (float)y);
 		//screen[index] = {};
 		glm::vec3 light = {};
 
-		for (int i = 0; i < num_rays ; i++)
-			light += trace_ray(new_ray, max_bounce);
+		for (int i = 0; i < rt_camera.num_rays.x ; i++)
+			light += trace_ray(new_ray, rt_camera.max_bounce.x);
 
 		glm::vec3 color{ light.x , light.y, light.z};
-		color /= (float)num_rays;
+		color /= (float)rt_camera.num_rays.y;
 		color *= 255.f * light_intensity;
 		float weight = 1.f / (num_frames + 1);
 
@@ -880,7 +893,6 @@ void Core::cpu_raytracing(void)
 	END_LOOP;
 
 	done = true;
-	num_frames;
 }
 
 void Core::init_raytracing(void)
@@ -893,6 +905,10 @@ void Core::init_raytracing(void)
 		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 	);
 	rt_camera_buffer.map();
+	rt_camera.max_bounce = { 1.f, 0.f, 0.f, 0.f };;
+	rt_camera.num_rays = { 1.f, 0.f, 0.f, 0.f };
+	rt_camera.frames = { 0.f, 0.f, 0.f, 0.f };
+	rt_camera.color = { 1.f, 0.f, 0.f, 1.f };
 
 	instances_info.init(
 		static_cast<uint32_t>(sizeof(instance_info_s) * scene.meshes.size()),
@@ -919,7 +935,8 @@ void Core::init_raytracing(void)
 
 	for (auto& i : scene.materials)
 		materials.push_back({ {i.diffuse.x, i.diffuse.y, i.diffuse.z, 0}, {}, {} });
-	materials[5].emissive = { 1.f, 1.f, 1.f, 1.f };
+	//materials[5].emissive = { 1.f, 1.f, 1.f, 1.f };
+	//scene.materials[5].emissive = materials[5].emissive;
 	materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
 
 	//CREATING ACCELERATION SCTRUCTURES
@@ -971,4 +988,12 @@ void Core::init_raytracing(void)
 	//SHADER BINDING TABLE
 
 	sbt.init(rt_pipeline.ptr, 1, 1);
+
+	command_buffer.begin(true);
+	offscreen_image.barrier(command_buffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+	command_buffer.end();
+	vulkan::Fence f;
+	f.init(false);
+	command_buffer.submit_p(nullptr, nullptr, &f);
+	f.wait();
 }
