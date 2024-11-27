@@ -78,7 +78,7 @@ void Window::init_swapchain(void) {
     create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     create_info.preTransform = surface_capabilities.currentTransform;
     create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    create_info.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    create_info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     create_info.clipped = VK_TRUE;
 
     if (vkCreateSwapchainKHR(Context::device.ptr, &create_info, nullptr, &swapchain) != VK_SUCCESS) throw std::runtime_error("failed to create swapchain");

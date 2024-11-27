@@ -20,7 +20,7 @@ uint PCG_Hash(uint ino)
 }
 
 uint generate_seed(void) {
-    uint s = uint(gl_LaunchIDEXT.x) * 37u + uint(gl_LaunchIDEXT.y) * 97u;
+    uint s = uint(gl_LaunchIDEXT.x) * 37u + uint(gl_LaunchIDEXT.y) * 97u + PCG_Hash(uint(camera.frames.x));
     s ^= (s << 13u);
     s ^= (s >> 17u);
     s ^= (s << 5u);
@@ -47,6 +47,7 @@ vec3 trace_ray(vec3 origin, vec3 direction, int max_bounce)
         final_color *= prd.material.diffuse.xyz;
     }
 
+    //return prd.color;
     return light;
     //return prd.material.diffuse.xyz;
 }
@@ -56,7 +57,10 @@ void store_pixel(vec3 color)
     vec4 old_pixel = imageLoad(image, ivec2(gl_LaunchIDEXT.xy));
     vec4 new_pixel = vec4(color, 1.0);
 
-    imageStore(image, ivec2(gl_LaunchIDEXT.xy), mix(old_pixel, new_pixel, 1));
+    //if (uint(camera.frames.x) > 1000)
+        imageStore(image, ivec2(gl_LaunchIDEXT.xy), (old_pixel * uint(camera.frames.x) + new_pixel) / (camera.frames.x + 1.f));
+    //else
+      //  imageStore(image, ivec2(gl_LaunchIDEXT.xy), mix(old_pixel, new_pixel, 1));
     //imageStore(image, ivec2(gl_LaunchIDEXT.xy), new_pixel);
 }
 
@@ -85,5 +89,8 @@ void main()
     if (num_rays > 0)
         light /= num_rays;
 
+    float c = rand();
     store_pixel(light);
+    //store_pixel(vec3(c, c, c));
+
 }

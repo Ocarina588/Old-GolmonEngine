@@ -67,6 +67,7 @@ struct hitPayload
 	material_info_s material;
 	vec3 rayOrigin;
 	vec3 rayDir;
+	vec3 color;
 	uint seed;
 };
 

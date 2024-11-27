@@ -320,14 +320,15 @@ glm::vec3 rotateAroundPoint(const glm::vec3& point, const glm::vec3& center, glm
 
 void Camera::process_mouse(float dt, double x, double y)
 {
-	float speed = 0.0002f;
+	float speed = 0.2f;
+	std::cout << dt << " " << x << " " << y << std::endl;
 	pos = rotateAroundPoint(pos, target, { 0.f, 1.f, 0.f }, -(float)x * speed * dt * glm::radians(90.f));
 	pos = rotateAroundPoint(pos, target, right, (float)y * speed * dt * glm::radians(90.f));
 }
 
 void Camera::process_scroll(float dt, double x, double y)
 {
-	float speed = 0.001f;
+	float speed = 10.f;
 	if (y > 0)
 		pos += direction * speed * dt;
 	if (y < 0)

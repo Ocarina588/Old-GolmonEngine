@@ -1,5 +1,6 @@
 #define DEFINE_OBJLOADER
 #include "Model.hpp"
+#include <map>
 
 Mesh::Mesh(void)
 {
@@ -180,7 +181,9 @@ void Scene::load_scene(std::string const& file_name)
 	Assimp::Importer importer;
 	std::cout << "going to load" << std::endl;
 	importer.SetPropertyInteger("AI_CONFIG_IMPORT_NO_TEXTURES", 1);
-	aiScene const * scene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_FlipUVs);
+	auto flags =
+		aiProcess_SortByPType | aiProcess_Triangulate | aiProcess_PreTransformVertices;
+	aiScene const * scene = importer.ReadFile(file_name,  flags);
 	if (!scene)
 		throw std::runtime_error(importer.GetErrorString());
 
@@ -189,10 +192,11 @@ void Scene::load_scene(std::string const& file_name)
 	meshes.resize(scene->mNumMeshes);
 	buffers.resize(scene->mNumMeshes);
 	materials.resize(scene->mNumMaterials);
+	//std::map<int, glm::vec3> m;
 
 	for (int i = 0; i < scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
-		std::cout << "loading mesh " << i << " over " << scene->mNumMeshes << std::endl;
+		//std::cout << "loading mesh " << i << " over " << scene->mNumMeshes << " faces: " << mesh->mNumFaces << std::endl;
 		for (int j = 0; j < mesh->mNumFaces; j++) {
 
 			for (int k = 0; k < 3; k++) {
@@ -204,9 +208,16 @@ void Scene::load_scene(std::string const& file_name)
 						//{(float)mesh->mTextureCoords[j]->x, (float)mesh->mTextureCoords[j]->y}
 						//{0.f, 0.f}
 					});;
+				//m[index] += glm::vec3((float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z);
 			}
 		}
 
+		//for (int j = 0; j < mesh->mNumFaces; j++)
+		//	for (int k = 0; k < 3; k++) {
+		//		int index = mesh->mFaces[j].mIndices[k];
+		//		meshes[i].vertices[j * 3 + k].normal = glm::normalize(m[index]);
+		//	}
+		//
 		meshes[i].init(meshes[i].vertices.data(), sizeof(Vertex) * meshes[i].vertices.size());
 		
 		
@@ -214,9 +225,8 @@ void Scene::load_scene(std::string const& file_name)
 			materials[mesh->mMaterialIndex].diffuse = { 1.f, 0.f, 0.f };
 		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_SPECULAR, *(aiColor3D*)&materials[mesh->mMaterialIndex].specular) != AI_SUCCESS)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
-		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_EMISSIVE, *(aiColor3D*)&materials[mesh->mMaterialIndex].emissive) != AI_SUCCESS)
+		if (scene->mMaterials[mesh->mMaterialIndex]->Get(AI_MATKEY_EMISSIVE_INTENSITY, *(aiColor3D*)&materials[mesh->mMaterialIndex].emissive) != AI_SUCCESS)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
-
 
 		meshes[i].material_index = mesh->mMaterialIndex;
 		materials[mesh->mMaterialIndex].name = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();
@@ -232,5 +242,6 @@ void Scene::draw(vulkan::CommandBuffer& b)
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(b.ptr, 0, 1, &meshes[i].buffer.ptr, &offset);
 		vkCmdDraw(b.ptr, meshes[i].buffer.size, 1, 0, 0);
+		std::cout << " ? " << std::endl;
 	}
 }

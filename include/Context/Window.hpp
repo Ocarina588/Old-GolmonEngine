@@ -40,7 +40,6 @@ namespace vulkan {
 
 	private:
 
-
 		void init_surface(void);
 		void init_swapchain(void);
 

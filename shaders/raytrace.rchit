@@ -104,4 +104,5 @@ void main() {
     prd.rayOrigin = worldPos;
     prd.rayDir    = mix(diffuse_direction, specular_direction, is_specular_direction ? material.smoooth.x : 0);
     prd.material  = materials.tab[material_index];
+    prd.color = worldNrm;
 }

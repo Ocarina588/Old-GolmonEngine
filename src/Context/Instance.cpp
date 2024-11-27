@@ -14,7 +14,7 @@ static VkBool32 messenger_callback(
 
 	switch (messageSeverity) {
 	case (VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT):
-		std::cout << TERMINAL_COLOR_YELLOW << std::endl; break;
+		std::cout << TERMINAL_COLOR_YELLOW << std::endl; break;;
 	case (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT):
 		std::cout << TERMINAL_COLOR_RED << std::endl; break;
 	}

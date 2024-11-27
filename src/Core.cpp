@@ -124,7 +124,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(3000, 2000, "Vulkan App");
+	Vk::window.init(2000, 1500, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	Vk::device.as_feature.accelerationStructure = VK_TRUE;
@@ -170,7 +170,7 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_scene("lol.obj");
+	scene.load_scene("stormtrooper.glb");
 	std::cout << "loaded" << std::endl;
 }
 
@@ -187,7 +187,7 @@ void Core::init_app_resources(void)
 	create_info.pAttachments = views;
 	create_info.width = Vk::window.extent.width;
 	create_info.height = Vk::window.extent.height;
-	create_info.renderPass = render_pass.ptr;
+	create_info.renderPass = render_pass.ptr;;
 	create_info.layers = 1;
 	
 	if (vkCreateFramebuffer(Vk::device.ptr, &create_info, nullptr, &offscreen_buffer) != VK_SUCCESS) throw std::runtime_error("failed to create framebuffer");
@@ -386,6 +386,7 @@ void Core::update_dt(void)
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	dt = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+	startTime = currentTime;
 }
 
 void Core::update_ubo(void)
@@ -474,28 +475,28 @@ void Core::render_raytracing(void)
 {
 	command_buffer.begin(true);
 	{
-
-		vkCmdBindPipeline(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.ptr);
-		vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.layout, 0, 1, &rt_pool.get_set(0, 0), 0, nullptr);
-		
-		vulkan::RayTracingPipeline::vkCmdTraceRaysKHR(command_buffer.ptr, &sbt.gen_region, &sbt.miss_region, &sbt.hit_region, &sbt.call_region, Vk::window.extent.width, Vk::window.extent.height, 1);
-
-		render_pass.begin(command_buffer, Vk::window.extent, offscreen_buffer);
-		render_imgui();
-		render_pass.end(command_buffer);
-
 		vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
 			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
 		);
+		;
+		if (stop == false) {
+			vkCmdBindPipeline(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.ptr);
+			vkCmdBindDescriptorSets(command_buffer.ptr, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rt_pipeline.layout, 0, 1, &rt_pool.get_set(0, 0), 0, nullptr);
+			vulkan::RayTracingPipeline::vkCmdTraceRaysKHR(command_buffer.ptr, &sbt.gen_region, &sbt.miss_region, &sbt.hit_region, &sbt.call_region, Vk::window.extent.width, Vk::window.extent.height, 1);
+			render_pass.begin(command_buffer, Vk::window.extent, offscreen_buffer);
+			render_imgui();
+			render_pass.end(command_buffer);
+		}
+
 
 		vulkan::Image::cpy(command_buffer, Vk::window.extent, offscreen_image.image, Vk::window.images[Vk::window.image_index], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
 
 		vulkan::Image::barrier(command_buffer, Vk::window.images[Vk::window.image_index],
 			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT
 		);
-
 	}
 	command_buffer.end();
 	rt_camera.frames.x++;
@@ -547,37 +548,44 @@ void Core::render_imgui(void)
 		int num_rays = rt_camera.num_rays.x;
 		int max_bounce = rt_camera.max_bounce.x;
 		glm::vec4 color = rt_camera.color;
+		int changed = 0;
 
 		if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
-			ImGui::InputInt("num rays", (int *)&num_rays);
-			ImGui::InputInt("max bounce", (int *)&max_bounce);
-			ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
-			ImGui::InputFloat3("test color", (float*)&rt_camera.color);
-			ImGui::InputInt("infinity", &infinity);
+			changed += ImGui::InputInt("num rays", (int *)&num_rays);
+			changed += ImGui::InputInt("max bounce", (int *)&max_bounce);
+			changed += ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
+			changed += ImGui::InputFloat3("test color", (float*)&rt_camera.color);
+			changed += ImGui::InputInt("infinity", &infinity);
 
 			rt_camera.num_rays.x = num_rays;
 			rt_camera.max_bounce.x = max_bounce;
 			rt_camera.frames.y = light_intensity;
 
-			ImGui::InputFloat3("Diffuse", (float*)&materials[selected].diffuse);
-			ImGui::InputFloat3("Specular", (float*)&materials[selected].specular);
-			ImGui::InputFloat3("Emissive", (float*)&materials[selected].emissive);
-			ImGui::SliderFloat("Smooth", &materials[selected].smoooth.x, 0.f, 1.f);
-			ImGui::SliderFloat("Specular Probability", &materials[selected].smoooth.y, 0.f, 1.f);
+			changed += ImGui::InputFloat3("Diffuse", (float*)&materials[selected].diffuse);
+			changed += ImGui::InputFloat3("Specular", (float*)&materials[selected].specular);
+			changed += ImGui::InputFloat3("Emissive", (float*)&materials[selected].emissive);
+			changed += ImGui::SliderFloat("Smooth", &materials[selected].smoooth.x, 0.f, 1.f);
+			changed += ImGui::SliderFloat("Specular Probability", &materials[selected].smoooth.y, 0.f, 1.f);
 			ImGui::BeginChild("left pane", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 			for (int i = 0; i < scene.materials.size(); i++)
 			{
 				// FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
 				char label[128];
 				sprintf_s(label, "Material: %s", scene.materials[i].name.c_str());
-				if (ImGui::Selectable(label, selected == i))
+				if (ImGui::Selectable(label, selected == i)) {
 					selected = i;
+					changed++;
+				}
 			}
 			ImGui::EndChild();
 
 			ImGui::End();
 		}
-		materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
+		if (changed) {
+			materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
+			changed = 0;
+			rt_camera.frames.x = 0;
+		}
 
 	}
 
@@ -690,7 +698,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			glfwSetWindowShouldClose(window, true);
 			break;
 		case GLFW_KEY_TAB:
-			core.rendering_mode = !core.rendering_mode;
+			core.stop = !core.stop;
+			//core.rendering_mode = !core.rendering_mode;
 		default:
 			break;
 		}
@@ -703,8 +712,14 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
 	static double old_xpos = 0;
 	static double old_ypos = 0;
 	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
-	if (core.clicked)
+	if (ImGui::GetIO().WantCaptureMouse) {
+		// ImGui is handling the mouse input, so skip your application's mouse handling logic.
+		return;
+	}
+	if (core.clicked) {
 		core.camera.process_mouse(core.dt, xpos - old_xpos, ypos - old_ypos);
+		core.rt_camera.frames.x = 0;
+	}
 	old_xpos = xpos;
 	old_ypos = ypos;
 }
@@ -723,6 +738,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 	Core& core = *(Core*)glfwGetWindowUserPointer(Vk::window.ptr);
 
 	core.camera.process_scroll(core.dt, xoffset, yoffset);
+	core.rt_camera.frames.x = 0;
 }
 
 void Core::create_gizmo(void)
@@ -933,8 +949,11 @@ void Core::init_raytracing(void)
 
 	instances_info.memcpy(addresses.data(), sizeof(instance_info_s) * addresses.size());
 
-	for (auto& i : scene.materials)
+	for (auto& i : scene.materials) {
 		materials.push_back({ {i.diffuse.x, i.diffuse.y, i.diffuse.z, 0}, {}, {} });
+		if (i.name == "light_softboxes")
+			materials.rbegin()->emissive = {0.85, .43f, .13f, 0.f};
+	}
 	//materials[5].emissive = { 1.f, 1.f, 1.f, 1.f };
 	//scene.materials[5].emissive = materials[5].emissive;
 	materials_buffer.memcpy(materials.data(), sizeof(material_info_s) * materials.size());
