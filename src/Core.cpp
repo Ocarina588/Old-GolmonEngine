@@ -124,7 +124,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(2000, 1500, "Vulkan App");
+	Vk::window.init(3000, 2000, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	Vk::device.as_feature.accelerationStructure = VK_TRUE;
@@ -133,7 +133,9 @@ void Core::init_engine_resources(void)
 	Vk::device.add_extension(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, &Vk::device.raytracing_pipeline_feature);
 	Vk::device.add_extension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, &Vk::device.as_feature);
 	Vk::device.add_extension(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, &Vk::device.device_address_feature);
-	Vk::device.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+	Vk::device.indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+	Vk::device.indexingFeatures.runtimeDescriptorArray = VK_TRUE;
+	Vk::device.add_extension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, &Vk::device.indexingFeatures);
 	Vk::device.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	Vk::device.add_extension(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 	
@@ -170,8 +172,10 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_scene("stormtrooper.glb");
+	scene.load_scene("lol.glb", command_buffer);
 	std::cout << "loaded" << std::endl;
+
+	sampler.init();
 }
 
 void Core::init_app_resources(void)
@@ -553,13 +557,15 @@ void Core::render_imgui(void)
 		if (ImGui::Begin("information window", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar)) {
 			changed += ImGui::InputInt("num rays", (int *)&num_rays);
 			changed += ImGui::InputInt("max bounce", (int *)&max_bounce);
-			changed += ImGui::InputFloat("light intensity", &light_intensity, 0.01f, 1.0f, "%f");
+			changed += ImGui::InputFloat("light intensity", &rt_camera.frames.y, 0.01f, 1.0f, "%f");
+			changed += ImGui::InputFloat("dof size", &rt_camera.dof.x, 0.01f, 100.0f, "%f");
+			changed += ImGui::InputFloat("dof lenght", &rt_camera.dof.y, 0.01f, 100.0f, "%f");
 			changed += ImGui::InputFloat3("test color", (float*)&rt_camera.color);
 			changed += ImGui::InputInt("infinity", &infinity);
 
 			rt_camera.num_rays.x = num_rays;
 			rt_camera.max_bounce.x = max_bounce;
-			rt_camera.frames.y = light_intensity;
+			light_intensity = rt_camera.frames.y;
 
 			changed += ImGui::InputFloat3("Diffuse", (float*)&materials[selected].diffuse);
 			changed += ImGui::InputFloat3("Specular", (float*)&materials[selected].specular);
@@ -597,7 +603,7 @@ void Core::render_gpu(void)
 	static std::string file_to_load = "";
 
 	if (file_to_load != "") {
-		scene.load_scene(file_to_load.c_str());
+		scene.load_scene(file_to_load.c_str(), command_buffer);
 		file_loaded = StringToWString(file_to_load);
 		file_loaded_n = file_to_load;
 	}
@@ -921,10 +927,13 @@ void Core::init_raytracing(void)
 		VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 	);
 	rt_camera_buffer.map();
-	rt_camera.max_bounce = { 1.f, 0.f, 0.f, 0.f };;
-	rt_camera.num_rays = { 1.f, 0.f, 0.f, 0.f };
+	rt_camera.max_bounce = { 3.f, 0.f, 0.f, 0.f };;
+	rt_camera.num_rays = { 100.f, 0.f, 0.f, 0.f };
 	rt_camera.frames = { 0.f, 0.f, 0.f, 0.f };
 	rt_camera.color = { 1.f, 0.f, 0.f, 1.f };
+	rt_camera.dof.x = 0.f;
+	rt_camera.dof.y = 1.f;
+	rt_camera.frames.y = 20.f;
 
 	instances_info.init(
 		static_cast<uint32_t>(sizeof(instance_info_s) * scene.meshes.size()),
@@ -945,7 +954,7 @@ void Core::init_raytracing(void)
 
 	std::vector<instance_info_s> addresses;
 	for (auto& i : scene.meshes)
-		addresses.emplace_back( i.buffer.address, (uint64_t)i.material_index );
+		addresses.emplace_back( i.buffer.address, (uint64_t)i.material_index, (uint64_t)i.texture_index );
 
 	instances_info.memcpy(addresses.data(), sizeof(instance_info_s) * addresses.size());
 
@@ -975,14 +984,20 @@ void Core::init_raytracing(void)
 		.add_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_RAYGEN_BIT_KHR) // offscreen image
 		.add_binding(2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // camera
 		.add_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // array of instance info
-		.add_binding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR); // array of material info
+		.add_binding(4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR) // array of material info
+		.add_binding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, scene.textures.size()); // array of textures
 	rt_pool.init();
 
 	rt_pool.add_write(0, 0, 0, tlas.ptr);
-	rt_pool.add_write(0, 0, 1, offscreen_image.view);
+	rt_pool.add_write(0, 0, 1, offscreen_image.view, VK_IMAGE_LAYOUT_GENERAL);
 	rt_pool.add_write(0, 0, 2, rt_camera_buffer.ptr);
 	rt_pool.add_write(0, 0, 3, instances_info.ptr);
 	rt_pool.add_write(0, 0, 4, materials_buffer.ptr);
+	std::vector<VkDescriptorImageInfo> infos;
+	for (int i = 0; i < scene.textures.size() ; i++)
+		infos.push_back({sampler.ptr, scene.textures[i].view, VK_IMAGE_LAYOUT_GENERAL});
+	rt_pool.add_writes(0, 0, 5, infos);
+	//rt_pool.add_write(0, 0, 5, scene.textures[0].view, VK_IMAGE_LAYOUT_GENERAL, sampler.ptr);
 	rt_pool.write();
 
 	for (auto& layout : rt_pool.layouts)

@@ -171,7 +171,7 @@ void Scene::load_obj(char const* obj)
 	//std::cout << meshes.size() << " " << buffers.size() << " " << total_size << std::endl;
 }
 
-void Scene::load_scene(std::string const& file_name)
+void Scene::load_scene(std::string const& file_name, vulkan::CommandBuffer &co)
 {
 	meshes.clear();
 	buffers.clear();
@@ -179,38 +179,62 @@ void Scene::load_scene(std::string const& file_name)
 
 	
 	Assimp::Importer importer;
+	//importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS, aiComponent_NORMALS | aiComponent_TEXCOORDS);
 	std::cout << "going to load" << std::endl;
-	importer.SetPropertyInteger("AI_CONFIG_IMPORT_NO_TEXTURES", 1);
 	auto flags =
-		aiProcess_SortByPType | aiProcess_Triangulate | aiProcess_PreTransformVertices;
+		aiProcess_SortByPType /*aiProcess_RemoveComponent*/ | aiProcess_Triangulate | aiProcess_PreTransformVertices | aiProcess_GenSmoothNormals | aiProcess_FlipUVs;
 	aiScene const * scene = importer.ReadFile(file_name,  flags);
+
 	if (!scene)
 		throw std::runtime_error(importer.GetErrorString());
 
 	std::cout << "Loading Scene:" << std::endl;
 	std::cout << "Meshes: " << scene->mNumMeshes << std::endl;
+	std::cout << "Textures: " << scene->mNumTextures << std::endl;
 	meshes.resize(scene->mNumMeshes);
 	buffers.resize(scene->mNumMeshes);
 	materials.resize(scene->mNumMaterials);
-	//std::map<int, glm::vec3> m;
+	textures.resize(scene->mNumTextures);
+
+	for (int i = 0; i < scene->mNumTextures; i++) {
+		auto texture = scene->mTextures[i];
+		if (texture->mHeight) continue;
+		std::cout << "texture " << i << ": " << texture->mWidth << " " << texture->mHeight << std::endl;
+		textures[i].init_compressed(
+			co,
+			texture->pcData, texture->mWidth * 4,
+			VK_FORMAT_R8G8B8A8_SRGB,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+		);
+	}
 
 	for (int i = 0; i < scene->mNumMeshes; i++) {
 		aiMesh* mesh = scene->mMeshes[i];
-		//std::cout << "loading mesh " << i << " over " << scene->mNumMeshes << " faces: " << mesh->mNumFaces << std::endl;
+		std::cout << "loading mesh " << i << " over " << scene->mNumMeshes << " faces: " << mesh->mNumFaces << std::endl;
+		std::cout << mesh->mNumVertices << std::endl;
 		for (int j = 0; j < mesh->mNumFaces; j++) {
-
 			for (int k = 0; k < 3; k++) {
 				int index = mesh->mFaces[j].mIndices[k];
+				glm::vec3 text_coord = {};
+				
+				if (mesh->HasTextureCoords(0))
+					text_coord = {(float)mesh->mTextureCoords[0][index].x, (float)mesh->mTextureCoords[0][index].y, (float)mesh->mTextureCoords[0][index].z};
+
 				meshes[i].vertices.push_back({
 						.pos = {(float)mesh->mVertices[index].x, (float)mesh->mVertices[index].y, (float)mesh->mVertices[index].z},
 						//{1.f, 1.f, 0.f}
-						.normal = {(float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z}
+						.normal = {(float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z},
+
+						.text_coord = text_coord
 						//{(float)mesh->mTextureCoords[j]->x, (float)mesh->mTextureCoords[j]->y}
 						//{0.f, 0.f}
 					});;
-				//m[index] += glm::vec3((float)mesh->mNormals[index].x, (float)mesh->mNormals[index].y, (float)mesh->mNormals[index].z);
 			}
 		}
+
+
 
 		//for (int j = 0; j < mesh->mNumFaces; j++)
 		//	for (int k = 0; k < 3; k++) {
@@ -229,6 +253,18 @@ void Scene::load_scene(std::string const& file_name)
 			materials[mesh->mMaterialIndex].specular = { 0.f, 0.f, 0.f };
 
 		meshes[i].material_index = mesh->mMaterialIndex;
+		meshes[i].texture_index = 0;
+
+		if (scene->mMaterials[mesh->mMaterialIndex]->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+			aiString texturePath;
+			if (scene->mMaterials[mesh->mMaterialIndex]->GetTexture(aiTextureType_DIFFUSE, 0, &texturePath) == AI_SUCCESS) {
+				if (texturePath.data[0] == '*') {
+					int textureIndex = atoi(texturePath.C_Str() + 1);
+					meshes[i].texture_index = textureIndex + 1;
+				}
+			}
+		}
+
 		materials[mesh->mMaterialIndex].name = scene->mMaterials[mesh->mMaterialIndex]->GetName().C_Str();
 	}
 	//std::cout << "vertices: " << meshes[0].vertices.size() << std::endl;
@@ -242,6 +278,5 @@ void Scene::draw(vulkan::CommandBuffer& b)
 		VkDeviceSize offset = 0;
 		vkCmdBindVertexBuffers(b.ptr, 0, 1, &meshes[i].buffer.ptr, &offset);
 		vkCmdDraw(b.ptr, meshes[i].buffer.size, 1, 0, 0);
-		std::cout << " ? " << std::endl;
 	}
 }

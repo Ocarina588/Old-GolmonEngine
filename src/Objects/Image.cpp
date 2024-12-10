@@ -1,6 +1,27 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include "Golmon.hpp"
 
 using namespace vulkan;
+
+Sampler::Sampler(void)
+{
+	create_info.magFilter = VK_FILTER_LINEAR;
+	create_info.minFilter = VK_FILTER_LINEAR;
+	create_info.addressModeU = create_info.addressModeV = create_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	create_info.anisotropyEnable = VK_TRUE;
+	create_info.maxAnisotropy = 1.f;// Context::device.properties_2.properties.limits.maxSamplerAnisotropy;
+	create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	create_info.unnormalizedCoordinates = VK_FALSE;
+	create_info.compareEnable = VK_FALSE;
+	create_info.compareOp = VK_COMPARE_OP_ALWAYS;
+	create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+}
+
+void Sampler::init(void)
+{
+	if (vkCreateSampler(Context::device.ptr, &create_info, nullptr, &ptr) != VK_SUCCESS)
+		throw std::runtime_error("failed to create sampler");
+}
 
 Image::Image(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect, VkMemoryPropertyFlags properties)
 {
@@ -26,6 +47,55 @@ void Image::init(VkExtent2D extent, VkFormat _format, VkImageUsageFlags usage, V
 	memory = create_memory(image, properties);
 	if (vkBindImageMemory(Context::device.ptr, image, memory, 0) != VK_SUCCESS) throw std::runtime_error("failed to bind image");
 	view = create_view(image, format, aspect);
+}
+
+void Image::init_compressed(vulkan::CommandBuffer &co, void* data, uint32_t size, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect, VkMemoryPropertyFlags properties)
+{
+	int x, y, c;
+	auto image_data = stbi_load_from_memory((uint8_t*)data, size, &x, &y, &c, STBI_rgb_alpha);
+	
+	init({ (uint32_t)x, (uint32_t)y }, format, usage, aspect, properties);
+	
+	vulkan::Buffer stagin_buffer;
+	stagin_buffer.init(
+		x * y * 4, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+	stagin_buffer.map();
+	stagin_buffer.memcpy(image_data, x * y * 4);
+	stagin_buffer.unmap();
+
+	co.begin();
+
+	barrier(co, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+
+	region.imageOffset = { 0, 0, 0 };
+	region.imageExtent = {
+		(uint32_t)x,
+		(uint32_t)y,
+		1
+	};
+
+	vkCmdCopyBufferToImage(co.ptr, stagin_buffer.ptr, image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+
+	co.end();
+	vulkan::Fence f;
+	f.init(false);
+	co.submit_p(nullptr, nullptr, &f);
+	f.wait();
+
+
+	
 }
 
 VkImage Image::create(VkExtent2D extent, VkFormat format, VkImageUsageFlags usage)
@@ -72,7 +142,7 @@ VkDeviceMemory Image::create_memory(VkImage image, VkMemoryPropertyFlags propert
 
 	VkMemoryAllocateInfo allocInfo { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = Context::device.find_memory_type(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	allocInfo.memoryTypeIndex = Context::device.find_memory_type(memRequirements.memoryTypeBits, properties);
 
 	VkDeviceMemory imageMemory = nullptr;
 	if (vkAllocateMemory(Context::device.ptr, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) throw std::runtime_error("failed to allocate memory");

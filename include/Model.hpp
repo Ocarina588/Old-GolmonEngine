@@ -11,6 +11,7 @@
 #include "Context/Context.hpp"
 #include "Objects/Buffer.hpp"
 #include "Objects/Commands.hpp"
+#include "Objects/Image.hpp"
 #include "objloader.hpp"
 
 
@@ -18,7 +19,7 @@
 struct Vertex {
 	alignas(16) glm::vec3 pos;
 	alignas(16) glm::vec3 normal;
-	//glm::vec2 text_coord;
+	alignas(16) glm::vec3 text_coord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription{};
@@ -29,8 +30,8 @@ struct Vertex {
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
@@ -42,10 +43,10 @@ struct Vertex {
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, normal);
 
-		//attributeDescriptions[2].binding = 0;
-		//attributeDescriptions[2].location = 2;
-		//attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-		//attributeDescriptions[2].offset = offsetof(Vertex, text_coord);
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, text_coord);
 
 		return attributeDescriptions;
 	}
@@ -100,6 +101,7 @@ public:
 	std::vector<Vertex> vertices;
 	std::string name;
 	int material_index;
+	int texture_index;
 
 private:
 };
@@ -119,11 +121,12 @@ public:
 	void draw(vulkan::CommandBuffer& b);
 
 	void load_obj(char const* file_name);
-	void load_scene(std::string const& file_name);
+	void load_scene(std::string const& file_name, vulkan::CommandBuffer &co);
 	std::vector<Mesh> meshes;
 	std::vector<VkBuffer> buffers;
 	std::vector<VkDeviceSize> offsets;
 	std::vector<material_s> materials;
+	std::vector<vulkan::Image> textures;
 	uint32_t total_size = 0;
 private:
 };

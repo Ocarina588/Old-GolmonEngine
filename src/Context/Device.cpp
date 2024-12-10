@@ -36,6 +36,7 @@ void Device::init(VkInstance instance, VkSurfaceKHR surface)
 	features.fillModeNonSolid = true;
 	features.wideLines = true;
 	features.shaderInt64 = true;
+	features.samplerAnisotropy = true;
 
 	VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {};
 	scalarBlockLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES;
@@ -120,9 +121,10 @@ uint32_t Device::find_memory_type(uint32_t typeFilter, VkMemoryPropertyFlags pro
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(Context::device.physical_ptr, &memProperties);
 
-	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-		if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+	for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+		if ((typeFilter & (1 << i)) && ((memProperties.memoryTypes[i].propertyFlags & properties) == properties))
 			return i;
+	}
 
 	throw std::runtime_error("no memory type");
 	return 0;

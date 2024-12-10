@@ -97,6 +97,8 @@ public:
 
 	//RAYTRACING
 
+	vulkan::Sampler sampler;
+
 	std::vector<vulkan::BLAS> blases;
 	vulkan::TLAS tlas;
 

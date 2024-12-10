@@ -29,7 +29,7 @@ uint generate_seed(void) {
 
 float rand(void)
 {
-    prd.seed = PCG_Hash(prd.seed);
+    prd.seed = PCG_Hash(prd.seed) ;
     return prd.seed / float(0x7FFFFFFF);
 }
 
@@ -57,11 +57,37 @@ void store_pixel(vec3 color)
     vec4 old_pixel = imageLoad(image, ivec2(gl_LaunchIDEXT.xy));
     vec4 new_pixel = vec4(color, 1.0);
 
-    //if (uint(camera.frames.x) > 1000)
+    if (camera.frames.x > 1)
         imageStore(image, ivec2(gl_LaunchIDEXT.xy), (old_pixel * uint(camera.frames.x) + new_pixel) / (camera.frames.x + 1.f));
-    //else
-      //  imageStore(image, ivec2(gl_LaunchIDEXT.xy), mix(old_pixel, new_pixel, 1));
-    //imageStore(image, ivec2(gl_LaunchIDEXT.xy), new_pixel);
+    else
+        imageStore(image, ivec2(gl_LaunchIDEXT.xy), new_pixel);
+}
+
+vec3 depth_of_field_sample_origin(void)
+{
+  // Random polar coordinates
+    float angle = rand() * 2.0 * 3.14159265359; // Random angle in [0, 2¦Ð]
+    float radius = sqrt(rand()) * camera.dof.x; // Random radius scaled by aperture size
+
+    // Convert polar coordinates to Cartesian (x, y)
+    float x = radius * cos(angle);
+    float y = radius * sin(angle);
+
+    // Offset is in the lens plane (perpendicular to view direction)
+    return vec3(x, y, 0.0);
+}
+
+vec3 depth_of_field_focus_point(vec2 d)
+{
+    // Compute the focus point based on the NDC coordinates (d)
+    vec4 target = camera.projInverse * vec4(d.x, d.y, 1, 1); // NDC -> View space
+    target /= target.w; // Perform perspective division (important after projInverse)
+    vec3 focusPointView = normalize(target.xyz) * camera.dof.y; // Scale by focus distance
+
+    // Transform the focus point to world space using the view matrix inverse
+    vec3 focusPointWorld = (camera.viewInverse * vec4(focusPointView, 1.0)).xyz;
+
+    return focusPointWorld;
 }
 
 void main() 
@@ -70,9 +96,6 @@ void main()
     const vec2 inUV = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
     vec2 d = inUV * 2.0 - 1.0;
 
-    vec4 origin = camera.viewInverse * vec4(0, 0, 0, 1);
-    vec4 target = camera.projInverse * vec4(d.x, d.y, 1, 1);
-    vec4 direction = camera.viewInverse * vec4(normalize(target.xyz), 0);
 
     int num_rays = int(camera.num_rays.x);
     int max_bounce = int(camera.max_bounce.x);
@@ -81,8 +104,19 @@ void main()
 
     prd.seed = generate_seed();
 
-    for (int i = 0; i < num_rays ; i++)
-        light += trace_ray(origin.xyz, direction.xyz, max_bounce);
+    for (int i = 0; i < num_rays ; i++) {
+        vec4 origin = camera.viewInverse * vec4(depth_of_field_sample_origin(), 1);
+        //vec4 target = camera.projInverse * vec4(d.x, d.y, 1, 1);
+        //vec4 direction = camera.viewInverse * vec4(normalize(target.xyz), 0);
+        vec3 focus_point = depth_of_field_focus_point(d);
+        vec3 direction = normalize(focus_point - origin.xyz);
+        light += 
+        trace_ray(
+            origin.xyz, 
+            direction, 
+            max_bounce
+        );
+     }
 
     light *= camera.frames.y;
 

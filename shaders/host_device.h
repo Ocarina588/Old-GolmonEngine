@@ -36,6 +36,7 @@ struct instance_info_s
 {
 	uint64_t vertex_address;
 	uint64_t material_index;
+	uint64_t texture_index;
 };
 
 struct material_info_s
@@ -56,6 +57,7 @@ struct camera_info_s
 	vec4 num_rays;
 	vec4 max_bounce;
 	vec4 frames;
+	vec4 dof;
 
 	//Alignas(16) int frames;
 	//Alignas(16) int max_bounce;

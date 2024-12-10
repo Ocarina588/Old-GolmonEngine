@@ -11,5 +11,5 @@ layout(location = 0) rayPayloadInEXT hitPayload prd;
 void main()
 {
     prd.material.emissive = vec4(0);
-    prd.material.diffuse = vec4(0);
+    prd.material.diffuse = vec4(0, 0, 1, 1);
 }

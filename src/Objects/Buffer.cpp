@@ -11,7 +11,6 @@ Buffer::Buffer(uint32_t _size, VkBufferUsageFlags usage, VkMemoryPropertyFlags p
 void Buffer::init(uint32_t _size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkMemoryAllocateFlags flag)
 {
 	original_size = _size;
-
 	VkBufferCreateInfo create_info{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	create_info.size = _size;
 	create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -20,7 +19,6 @@ void Buffer::init(uint32_t _size, VkBufferUsageFlags usage, VkMemoryPropertyFlag
 	if (vkCreateBuffer(Context::device.ptr, &create_info, nullptr, &ptr) != VK_SUCCESS) throw std::runtime_error("failed to create buffer");
 
 	auto requirements = Context::device.get_memory_requirements(ptr);
-
 	VkMemoryAllocateFlagsInfo memoryAllocateFlagsInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO };
 	memoryAllocateFlagsInfo.flags = flag;
 

@@ -171,7 +171,7 @@ std::vector<Ray> trace_ray(Ray r, int max_bounce, Scene &scene)
 		}
 
 		if (!found) break;
-		print_vector(info.pos); std::cout << std::endl;
+		//print_vector(info.pos); std::cout << std::endl;
 		r.orig = info.pos;
 		r.dir = Camera::generateRandomDirection(info.normal);
 		rays.push_back(r);
@@ -321,7 +321,7 @@ glm::vec3 rotateAroundPoint(const glm::vec3& point, const glm::vec3& center, glm
 void Camera::process_mouse(float dt, double x, double y)
 {
 	float speed = 0.2f;
-	std::cout << dt << " " << x << " " << y << std::endl;
+	//std::cout << dt << " " << x << " " << y << std::endl;
 	pos = rotateAroundPoint(pos, target, { 0.f, 1.f, 0.f }, -(float)x * speed * dt * glm::radians(90.f));
 	pos = rotateAroundPoint(pos, target, right, (float)y * speed * dt * glm::radians(90.f));
 }
