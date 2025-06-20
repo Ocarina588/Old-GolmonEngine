@@ -124,7 +124,7 @@ Core::~Core(void)
 
 void Core::init_engine_resources(void)
 {
-	Vk::window.init(3000, 2000, "Vulkan App");
+	Vk::window.init(1280, 720, "Vulkan App");
 	Vk::instance.add_layer("VK_LAYER_LUNARG_monitor");
 
 	Vk::device.as_feature.accelerationStructure = VK_TRUE;
@@ -139,7 +139,7 @@ void Core::init_engine_resources(void)
 	Vk::device.add_extension(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 	Vk::device.add_extension(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
 	
-	Vk::device.set_gpu(1);
+	Vk::device.set_gpu(0);
 
 	context.init(true);
 
@@ -172,7 +172,7 @@ void Core::init_engine_resources(void)
 
 	render_pass.use_depth(depth_image); 
 
-	scene.load_scene("lol.glb", command_buffer);
+	scene.load_scene("models/monster.glb", command_buffer);
 	std::cout << "loaded" << std::endl;
 
 	sampler.init();

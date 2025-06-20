@@ -32,6 +32,7 @@ void Window::init(int w, int h, char const* title)
 
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	if (!(vulkan::Context::window.ptr = glfwCreateWindow(w, h, title, nullptr, nullptr))) throw std::runtime_error("failed to create window");
 }
